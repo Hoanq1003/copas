@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CoPas</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+</head>
+
+<body class="theme-light">
+  <!-- Titlebar -->
+  <header class="titlebar">
+    <div class="tb-left">
+      <svg class="logo-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="url(#grad)"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <defs>
+          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#6366f1" />
+            <stop offset="100%" stop-color="#a78bfa" />
+          </linearGradient>
+        </defs>
+        <rect x="8" y="2" width="8" height="4" rx="1" />
+        <rect x="4" y="4" width="16" height="18" rx="2" />
+        <line x1="8" y1="10" x2="16" y2="10" />
+        <line x1="8" y1="14" x2="14" y2="14" />
+        <line x1="8" y1="18" x2="12" y2="18" />
+      </svg>
+      <span class="logo-text">CoPas</span>
+    </div>
+    <div class="tb-right">
+      <button class="tb-btn" id="btn-guide" title="Hướng dẫn (F1)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      </button>
+      <button class="tb-btn" id="btn-settings" title="Cài đặt (Ctrl+,)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
+      <button class="tb-btn" id="btn-theme" title="Đổi theme">
+        <svg class="ico-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+        <svg class="ico-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <circle cx="12" cy="12" r="5" />
+          <path
+            d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+        </svg>
+      </button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="btn-min" title="Thu nhỏ">
+        <svg width="12" height="12" viewBox="0 0 12 12">
+          <rect y="5" width="12" height="2" rx="1" fill="currentColor" />
+        </svg>
+      </button>
+      <button class="tb-btn" id="btn-max" title="Phóng to">
+        <svg width="12" height="12" viewBox="0 0 12 12">
+          <rect x="1" y="1" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
+        </svg>
+      </button>
+      <button class="tb-btn close" id="btn-close" title="Đóng">
+        <svg width="12" height="12" viewBox="0 0 12 12">
+          <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sb-head">
+        <span class="sb-title">THẺ</span>
+        <button class="sb-add" id="btn-add-tab" title="Tạo thẻ (Ctrl+T)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+      </div>
+      <nav class="tab-list" id="tab-list"></nav>
+      <div class="sb-stats">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+        </svg>
+        <span id="stat-total">0</span> mục · <span id="stat-size">0 KB</span>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="content">
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input id="search" placeholder="Tìm kiếm... (Ctrl+F)" autocomplete="off">
+          <button class="s-clear" id="s-clear">
+            <svg width="10" height="10" viewBox="0 0 12 12">
+              <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+        <div class="tool-btns">
+          <button class="t-btn" id="btn-sel" title="Chọn (Ctrl+A)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </button>
+          <button class="t-btn accent" id="btn-bulk" title="Copy chọn (Ctrl+Shift+C)" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </button>
+          <button class="t-btn warn" id="btn-del-sel" title="Xóa chọn (Delete)" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              <path d="m19 6-.7 11.2a2 2 0 0 1-2 1.8H7.7a2 2 0 0 1-2-1.8L5 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Selection bar -->
+      <div class="sel-bar" id="sel-bar" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+        <span id="sel-count">0 đã chọn</span>
+        <span class="sel-hint">Ctrl+Click chọn thêm · Ctrl+A chọn tất cả · Ctrl+Shift+C copy · Esc thoát</span>
+      </div>
+
+      <!-- Items -->
+      <div class="scroll" id="scroll">
+        <div id="items"></div>
+        <div class="empty" id="empty" style="display:none">
+          <svg class="empty-svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.2">
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <rect x="4" y="4" width="16" height="18" rx="2" />
+            <line x1="8" y1="10" x2="16" y2="10" opacity=".4" />
+            <line x1="8" y1="14" x2="14" y2="14" opacity=".4" />
+          </svg>
+          <h3>Chưa có nội dung</h3>
+          <p>Copy bất kỳ văn bản nào — CoPas lưu tự động!</p>
+          <p class="empty-hint">Phím tắt: <kbd>Ctrl+Shift+V</kbd> mở nhanh</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Settings Panel -->
+    <div class="panel" id="settings-panel" style="display:none">
+      <div class="panel-head">
+        <h2><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg> Cài đặt</h2>
+        <button class="panel-close" id="close-settings"><svg width="14" height="14" viewBox="0 0 12 12">
+            <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg></button>
+      </div>
+      <div class="panel-body">
+        <div class="sg">
+          <h3>⌨️ Phím tắt toàn cục</h3>
+          <div class="sr"><label>Mở / Ẩn CoPas</label>
+            <div class="sc-wrap"><input class="sc-input" id="set-toggle" readonly placeholder="Nhấn phím..."><button
+                class="sc-rec" data-target="set-toggle">Ghi</button></div>
+          </div>
+          <p class="sh">Nhấn "Ghi" → nhấn tổ hợp phím mong muốn</p>
+        </div>
+        <div class="sg">
+          <h3>📦 Lưu trữ</h3>
+          <div class="sr"><label>Số mục tối đa</label><input type="number" class="sn" id="set-max" min="100" max="10000"
+              value="1000"></div>
+        </div>
+        <div class="sg">
+          <h3>📋 Dán hàng loạt</h3>
+          <div class="sr"><label>Ký tự ngăn cách</label>
+            <select class="ss" id="set-delim">
+              <option value="\\n">Xuống dòng ↵</option>
+              <option value="\\t">Tab ⇥</option>
+              <option value=", ">Dấu phẩy ,</option>
+              <option value=" | ">Thanh đứng |</option>
+              <option value=" ">Khoảng trắng</option>
+            </select>
+          </div>
+        </div>
+        <div class="sg">
+          <h3>🎨 Giao diện</h3>
+          <div class="theme-sw">
+            <button class="th-opt" data-theme="light"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5" />
+                <path
+                  d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg> Sáng</button>
+            <button class="th-opt" data-theme="dark"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg> Tối</button>
+          </div>
+        </div>
+        <button class="save-btn" id="save-settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <path d="M17 21v-8H7v8M7 3v5h8" />
+          </svg> Lưu cài đặt</button>
+      </div>
+    </div>
+
+    <!-- Guide Panel -->
+    <div class="panel" id="guide-panel" style="display:none">
+      <div class="panel-head">
+        <h2><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg> Hướng dẫn</h2>
+        <button class="panel-close" id="close-guide"><svg width="14" height="14" viewBox="0 0 12 12">
+            <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg></button>
+      </div>
+      <div class="panel-body guide-body">
+        <div class="gs">
+          <div class="gn">1</div>
+          <div>
+            <h4>Copy nội dung</h4>
+            <p>Copy văn bản, link từ bất kỳ đâu. CoPas <strong>tự động lưu</strong>.</p>
+          </div>
+        </div>
+        <div class="gs">
+          <div class="gn">2</div>
+          <div>
+            <h4>Chọn các mục</h4>
+            <p>Nhấn <kbd>Ctrl+A</kbd> để bật chế độ chọn. Click từng mục hoặc <kbd>Ctrl+A</kbd> lần nữa để chọn tất cả.
+            </p>
+          </div>
+        </div>
+        <div class="gs">
+          <div class="gn">3</div>
+          <div>
+            <h4>Copy hàng loạt</h4>
+            <p>Nhấn <kbd>Ctrl+Shift+C</kbd> hoặc nút Copy. Tất cả mục gộp lại vào clipboard.</p>
+          </div>
+        </div>
+        <div class="gs">
+          <div class="gn">4</div>
+          <div>
+            <h4>Dán</h4>
+            <p>Chuyển qua ứng dụng đích → <kbd>Ctrl+V</kbd> dán tất cả!</p>
+          </div>
+        </div>
+
+        <div class="guide-kb">
+          <h4>⌨️ Phím tắt</h4>
+          <table class="kb-table">
+            <tr>
+              <td><kbd id="guide-sc">Ctrl+Shift+V</kbd></td>
+              <td>Mở / Ẩn CoPas</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl+F</kbd></td>
+              <td>Tìm kiếm</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl+A</kbd></td>
+              <td>Bật chọn / Chọn tất cả</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl+Shift+C</kbd></td>
+              <td>Copy hàng loạt</td>
+            </tr>
+            <tr>
+              <td><kbd>Delete</kbd></td>
+              <td>Xóa mục đã chọn</td>
+            </tr>
+            <tr>
+              <td><kbd>Escape</kbd></td>
+              <td>Thoát chọn / tìm kiếm</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl+T</kbd></td>
+              <td>Tạo thẻ mới</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl+,</kbd></td>
+              <td>Mở cài đặt</td>
+            </tr>
+            <tr>
+              <td><kbd>F1</kbd></td>
+              <td>Mở hướng dẫn</td>
+            </tr>
+            <tr>
+              <td><kbd>Double Click</kbd></td>
+              <td>Copy nhanh 1 mục</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="guide-tips">
+          <h4>💡 Mẹo</h4>
+          <ul>
+            <li>Dùng <strong>🏷</strong> đặt tên mục quan trọng</li>
+            <li>Dùng <strong>📁</strong> chuyển mục vào thẻ riêng</li>
+            <li>Link tự động vào thẻ "Liên kết"</li>
+            <li><strong>📌 Ghim</strong> giữ mục luôn ở đầu</li>
+            <li>Cài đặt ký tự ngăn cách trong ⚙️</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="dialog-root"></div>
+  <div class="toast-wrap" id="toast-wrap"></div>
+  <script src="renderer.js"></script>
+</body>
+
+</html>

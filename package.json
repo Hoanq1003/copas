@@ -1,6 +1,6 @@
 {
   "name": "copas",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "CoPas - Clipboard Manager for Windows & macOS. Organize copied items into named tabs with persistent storage.",
   "main": "main.js",
   "scripts": {

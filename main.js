@@ -1,10 +1,12 @@
 const { app, BrowserWindow, clipboard, ipcMain, Tray, Menu, globalShortcut, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { execSync, exec } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 let db, mainWindow, tray, isQuitting = false, lastClipboardText = '', pollInterval = null;
 const DB_PATH = path.join(app.getPath('userData'), 'copas-data.json');
+const isMac = process.platform === 'darwin';
 
 const DEFAULT_DATA = {
   tabs: [
@@ -16,8 +18,8 @@ const DEFAULT_DATA = {
   settings: {
     theme: 'light',
     maxHistory: 1000,
-    shortcutToggle: process.platform === 'darwin' ? 'Cmd+Shift+V' : 'Ctrl+Shift+V',
-    shortcutPaste: process.platform === 'darwin' ? 'Cmd+Shift+B' : 'Ctrl+Shift+B',
+    shortcutToggle: isMac ? 'Cmd+Shift+V' : 'Ctrl+Shift+V',
+    shortcutPaste: isMac ? 'Cmd+Shift+B' : 'Ctrl+Shift+B',
     pollInterval: 500,
     showNotifications: true,
     autoStart: false,
@@ -30,7 +32,6 @@ async function initDB() {
   const { JSONFile } = await import('lowdb/node');
   db = new Low(new JSONFile(DB_PATH), JSON.parse(JSON.stringify(DEFAULT_DATA)));
   await db.read();
-  // Migration
   if (!db.data.tabs) db.data.tabs = DEFAULT_DATA.tabs;
   if (!db.data.settings) db.data.settings = {};
   db.data.settings = { ...DEFAULT_DATA.settings, ...db.data.settings };
@@ -79,23 +80,83 @@ function stopClipboardMonitoring() { if (pollInterval) { clearInterval(pollInter
 function registerShortcuts() {
   globalShortcut.unregisterAll();
   try {
-    globalShortcut.register(db.data.settings.shortcutToggle, () => {
-      if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : (mainWindow.show(), mainWindow.focus());
+    const sc = db.data.settings.shortcutToggle;
+    globalShortcut.register(sc, () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          showPopup();
+        }
+      }
     });
   } catch (e) { console.error('Failed to register toggle shortcut:', e); }
 }
 
+// ===== POPUP BEHAVIOR =====
+function showPopup() {
+  if (!mainWindow) return;
+  // Position near cursor / center of active screen
+  const { screen } = require('electron');
+  const cursorPos = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursorPos);
+  const { width: sw, height: sh, x: sx, y: sy } = display.workArea;
+
+  const ww = 460, wh = 560;
+  // Center horizontally in display, position from center-ish vertically
+  let x = Math.round(sx + (sw - ww) / 2);
+  let y = Math.round(sy + (sh - wh) / 2 - 40);
+
+  mainWindow.setBounds({ x, y, width: ww, height: wh });
+  mainWindow.show();
+  mainWindow.focus();
+  // Notify renderer to focus search
+  mainWindow.webContents.send('popup-shown');
+}
+
+function simulatePaste() {
+  // Simulate Ctrl+V / Cmd+V in the previously active application
+  if (isMac) {
+    exec(`osascript -e 'delay 0.15' -e 'tell application "System Events" to keystroke "v" using command down'`);
+  } else {
+    exec(`powershell -command "Start-Sleep -Milliseconds 150; Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"`);
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 520, height: 740, minWidth: 420, minHeight: 520,
-    frame: false, backgroundColor: '#f8f9fc',
+    width: 460, height: 560, minWidth: 360, minHeight: 400,
+    frame: false,
+    backgroundColor: '#f8f9fc',
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
-    show: false, resizable: true, titleBarStyle: 'hidden',
-    trafficLightPosition: { x: -20, y: -20 }
+    show: false,
+    resizable: true,
+    // POPUP OVERLAY SETTINGS
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    type: isMac ? 'panel' : 'toolbar',
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: -20, y: -20 },
+    hasShadow: true,
+    transparent: false,
+    focusable: true,
+    fullscreenable: false,
+    maximizable: false,
   });
   mainWindow.loadFile('index.html');
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.once('ready-to-show', () => { /* Don't show on startup - wait for shortcut */ });
+
+  // Auto-hide when clicking outside (blur)
+  mainWindow.on('blur', () => {
+    // Small delay to allow paste-and-hide to complete first
+    setTimeout(() => {
+      if (mainWindow && mainWindow.isVisible() && !mainWindow.webContents.isDevToolsOpened()) {
+        mainWindow.hide();
+      }
+    }, 150);
+  });
+
   mainWindow.on('close', e => { if (!isQuitting) { e.preventDefault(); mainWindow.hide(); } });
   mainWindow.on('closed', () => { mainWindow = null; });
 }
@@ -108,11 +169,13 @@ function createTray() {
   tray = new Tray(icon);
   tray.setToolTip('CoPas');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: '📋 Mở CoPas', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+    { label: '📋 Mở CoPas', click: () => showPopup() },
     { type: 'separator' },
     { label: '❌ Thoát', click: () => { isQuitting = true; app.quit(); } }
   ]));
-  tray.on('click', () => { if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : (mainWindow.show(), mainWindow.focus()); });
+  tray.on('click', () => {
+    if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : showPopup();
+  });
 }
 
 function setupIPC() {
@@ -158,6 +221,31 @@ function setupIPC() {
     const combined = contents.join(delim);
     clipboard.writeText(combined); lastClipboardText = combined; return { success: true };
   });
+
+  // ===== PASTE-AND-HIDE: The core new feature =====
+  ipcMain.handle('paste-and-hide', async (e, content) => {
+    // 1. Write to clipboard
+    clipboard.writeText(content);
+    lastClipboardText = content;
+    // 2. Hide popup
+    if (mainWindow) mainWindow.hide();
+    // 3. Simulate paste in the previously active app
+    simulatePaste();
+    return { success: true };
+  });
+
+  ipcMain.handle('bulk-paste-and-hide', async (e, contents) => {
+    const delim = (db.data.settings.pasteDelimiter || '\\n').replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+    const combined = contents.join(delim);
+    clipboard.writeText(combined);
+    lastClipboardText = combined;
+    if (mainWindow) mainWindow.hide();
+    simulatePaste();
+    return { success: true };
+  });
+
+  ipcMain.handle('hide-popup', () => { if (mainWindow) mainWindow.hide(); });
+
   ipcMain.handle('clear-history', async (e, tabId) => {
     if (tabId && tabId !== 'all') db.data.items = db.data.items.filter(i => i.tabId !== tabId || i.pinned);
     else db.data.items = db.data.items.filter(i => i.pinned);
@@ -194,27 +282,12 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.logger = console;
-
-  autoUpdater.on('checking-for-update', () => {
-    sendToRenderer('update-status', { status: 'checking' });
-  });
-  autoUpdater.on('update-available', (info) => {
-    sendToRenderer('update-status', { status: 'available', version: info.version });
-  });
-  autoUpdater.on('update-not-available', () => {
-    sendToRenderer('update-status', { status: 'up-to-date' });
-  });
-  autoUpdater.on('download-progress', (progress) => {
-    sendToRenderer('update-status', { status: 'downloading', percent: Math.round(progress.percent) });
-  });
-  autoUpdater.on('update-downloaded', (info) => {
-    sendToRenderer('update-status', { status: 'ready', version: info.version });
-  });
-  autoUpdater.on('error', (err) => {
-    sendToRenderer('update-status', { status: 'error', message: err.message });
-  });
-
-  // Check for updates 3 seconds after launch
+  autoUpdater.on('checking-for-update', () => sendToRenderer('update-status', { status: 'checking' }));
+  autoUpdater.on('update-available', (info) => sendToRenderer('update-status', { status: 'available', version: info.version }));
+  autoUpdater.on('update-not-available', () => sendToRenderer('update-status', { status: 'up-to-date' }));
+  autoUpdater.on('download-progress', (progress) => sendToRenderer('update-status', { status: 'downloading', percent: Math.round(progress.percent) }));
+  autoUpdater.on('update-downloaded', (info) => sendToRenderer('update-status', { status: 'ready', version: info.version }));
+  autoUpdater.on('error', (err) => sendToRenderer('update-status', { status: 'error', message: err.message }));
   setTimeout(() => { autoUpdater.checkForUpdates().catch(() => { }); }, 3000);
 }
 
@@ -225,7 +298,7 @@ function sendToRenderer(channel, data) {
 // Single instance
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
-else app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } });
+else app.on('second-instance', () => { if (mainWindow) showPopup(); });
 
 app.whenReady().then(async () => {
   await initDB();
@@ -234,5 +307,5 @@ app.whenReady().then(async () => {
   setupAutoUpdater();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin' && isQuitting) app.quit(); });
-app.on('activate', () => { if (!mainWindow) createWindow(); else mainWindow.show(); });
+app.on('activate', () => { if (!mainWindow) createWindow(); else showPopup(); });
 app.on('before-quit', () => { isQuitting = true; stopClipboardMonitoring(); globalShortcut.unregisterAll(); });

@@ -58,17 +58,7 @@
         </svg>
       </button>
       <div class="tb-sep"></div>
-      <button class="tb-btn" id="btn-min" title="Thu nhỏ">
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <rect y="5" width="12" height="2" rx="1" fill="currentColor" />
-        </svg>
-      </button>
-      <button class="tb-btn" id="btn-max" title="Phóng to">
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <rect x="1" y="1" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
-        </svg>
-      </button>
-      <button class="tb-btn close" id="btn-close" title="Đóng">
+      <button class="tb-btn close" id="btn-close" title="Ẩn (Esc)">
         <svg width="12" height="12" viewBox="0 0 12 12">
           <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
         </svg>
@@ -121,10 +111,11 @@
               <path d="m9 12 2 2 4-4" />
             </svg>
           </button>
-          <button class="t-btn accent" id="btn-bulk" title="Copy chọn (Ctrl+Shift+C)" disabled>
+          <button class="t-btn accent" id="btn-bulk-paste" title="Dán chọn (Enter)" disabled>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              <rect x="8" y="2" width="8" height="4" rx="1" />
+              <rect x="4" y="4" width="16" height="18" rx="2" />
+              <path d="m9 14 2 2 4-4" />
             </svg>
           </button>
           <button class="t-btn warn" id="btn-del-sel" title="Xóa chọn (Delete)" disabled>
@@ -143,7 +134,7 @@
           <path d="m9 12 2 2 4-4" />
         </svg>
         <span id="sel-count">0 đã chọn</span>
-        <span class="sel-hint">Ctrl+Click chọn thêm · Ctrl+A chọn tất cả · Ctrl+Shift+C copy · Esc thoát</span>
+        <span class="sel-hint">Ctrl+Click chọn thêm · Enter dán tất cả · Esc thoát</span>
       </div>
 
       <!-- Items -->
@@ -158,8 +149,8 @@
             <line x1="8" y1="14" x2="14" y2="14" opacity=".4" />
           </svg>
           <h3>Chưa có nội dung</h3>
-          <p>Copy bất kỳ văn bản nào — CoPas lưu tự động!</p>
-          <p class="empty-hint">Phím tắt: <kbd>Ctrl+Shift+V</kbd> mở nhanh</p>
+          <p>Click mục bất kỳ — CoPas <strong>tự dán</strong> vào app đang mở!</p>
+          <p class="empty-hint">Phím tắt: <kbd>Ctrl+Shift+V</kbd> mở popup</p>
         </div>
       </div>
     </main>
@@ -247,23 +238,22 @@
         <div class="gs">
           <div class="gn">2</div>
           <div>
-            <h4>Chọn các mục</h4>
-            <p>Nhấn <kbd>Ctrl+A</kbd> để bật chế độ chọn. Click từng mục hoặc <kbd>Ctrl+A</kbd> lần nữa để chọn tất cả.
-            </p>
+            <h4>Mở CoPas</h4>
+            <p>Nhấn <kbd>Ctrl+Shift+V</kbd> — popup xuất hiện trên app đang dùng.</p>
           </div>
         </div>
         <div class="gs">
           <div class="gn">3</div>
           <div>
-            <h4>Copy hàng loạt</h4>
-            <p>Nhấn <kbd>Ctrl+Shift+C</kbd> hoặc nút Copy. Tất cả mục gộp lại vào clipboard.</p>
+            <h4>Click để dán!</h4>
+            <p><strong>Click</strong> mục nào → tự dán vào app đích. CoPas tự ẩn!</p>
           </div>
         </div>
         <div class="gs">
           <div class="gn">4</div>
           <div>
-            <h4>Dán</h4>
-            <p>Chuyển qua ứng dụng đích → <kbd>Ctrl+V</kbd> dán tất cả!</p>
+            <h4>Dán nhiều mục</h4>
+            <p><kbd>Ctrl+Click</kbd> chọn nhiều mục → <kbd>Enter</kbd> dán tất cả!</p>
           </div>
         </div>
 
@@ -272,43 +262,31 @@
           <table class="kb-table">
             <tr>
               <td><kbd id="guide-sc">Ctrl+Shift+V</kbd></td>
-              <td>Mở / Ẩn CoPas</td>
+              <td>Mở / Ẩn CoPas popup</td>
+            </tr>
+            <tr>
+              <td><kbd>Click</kbd></td>
+              <td>Dán mục vào app đích</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl+Click</kbd></td>
+              <td>Chọn nhiều mục</td>
+            </tr>
+            <tr>
+              <td><kbd>Enter</kbd></td>
+              <td>Dán các mục đã chọn</td>
+            </tr>
+            <tr>
+              <td><kbd>Double Click</kbd></td>
+              <td>Copy (không dán)</td>
             </tr>
             <tr>
               <td><kbd>Ctrl+F</kbd></td>
               <td>Tìm kiếm</td>
             </tr>
             <tr>
-              <td><kbd>Ctrl+A</kbd></td>
-              <td>Bật chọn / Chọn tất cả</td>
-            </tr>
-            <tr>
-              <td><kbd>Ctrl+Shift+C</kbd></td>
-              <td>Copy hàng loạt</td>
-            </tr>
-            <tr>
-              <td><kbd>Delete</kbd></td>
-              <td>Xóa mục đã chọn</td>
-            </tr>
-            <tr>
               <td><kbd>Escape</kbd></td>
-              <td>Thoát chọn / tìm kiếm</td>
-            </tr>
-            <tr>
-              <td><kbd>Ctrl+T</kbd></td>
-              <td>Tạo thẻ mới</td>
-            </tr>
-            <tr>
-              <td><kbd>Ctrl+,</kbd></td>
-              <td>Mở cài đặt</td>
-            </tr>
-            <tr>
-              <td><kbd>F1</kbd></td>
-              <td>Mở hướng dẫn</td>
-            </tr>
-            <tr>
-              <td><kbd>Double Click</kbd></td>
-              <td>Copy nhanh 1 mục</td>
+              <td>Ẩn CoPas</td>
             </tr>
           </table>
         </div>

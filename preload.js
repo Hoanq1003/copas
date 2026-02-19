@@ -23,9 +23,15 @@ contextBridge.exposeInMainWorld('copas', {
     getSettings: () => ipcRenderer.invoke('get-settings'),
     setSettings: (s) => ipcRenderer.invoke('set-settings', s),
 
+    // Paste-and-hide (NEW: popup overlay UX)
+    pasteAndHide: (content) => ipcRenderer.invoke('paste-and-hide', content),
+    bulkPasteAndHide: (contents) => ipcRenderer.invoke('bulk-paste-and-hide', contents),
+    hidePopup: () => ipcRenderer.invoke('hide-popup'),
+
     // Events
     onClipboardUpdate: (cb) => ipcRenderer.on('clipboard-updated', (_, item) => cb(item)),
     onHistoryCleared: (cb) => ipcRenderer.on('history-cleared', () => cb()),
+    onPopupShown: (cb) => ipcRenderer.on('popup-shown', () => cb()),
 
     // Updates
     checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
@@ -39,3 +45,4 @@ contextBridge.exposeInMainWorld('copas', {
     close: () => ipcRenderer.send('window-close'),
     quit: () => ipcRenderer.send('window-quit')
 });
+

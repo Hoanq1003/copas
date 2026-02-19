@@ -1,18 +1,13 @@
 // ============================================================
-// CoPas v4 — Renderer: Rich Shortcuts + Modern SVG Icons
+// CoPas v5 — Popup Overlay: Click-to-Paste
 // ============================================================
-// KEYBOARD SHORTCUTS:
-//   Ctrl+Click     → Chọn từng mục (giống Windows Explorer)
-//   Ctrl+F         → Focus search
-//   Ctrl+A         → Toggle select mode / Select all
-//   Ctrl+Shift+C   → Bulk copy selected
-//   Delete/Backspace→ Delete selected
-//   Escape         → Clear search / Exit select / Close panels
-//   Ctrl+T         → New tab
-//   Ctrl+,         → Settings
-//   F1             → Guide
-//   Enter          → Copy first/selected item
-//   ↑/↓            → Navigate items
+// BEHAVIOR:
+//   Single Click    → Paste item into active app + hide
+//   Ctrl+Click      → Select multiple items
+//   Enter           → Paste selected items + hide
+//   Ctrl+Shift+C    → Copy to clipboard only (no paste)
+//   Double Click    → Copy only, don't paste
+//   Escape          → Hide popup
 // ============================================================
 (function () {
     'use strict';
@@ -102,24 +97,21 @@
     function cardHTML(i, idx) {
         const c = searchQuery ? hi(esc(i.content), searchQuery) : esc(i.content);
         const s = selectedIds.has(i.id);
-        const focused = idx === focusedIndex;
-        return `<div class="card ${i.pinned ? 'pinned' : ''} ${s ? 'sel' : ''} ${focused ? 'focused' : ''}" data-id="${i.id}" data-idx="${idx}" data-cat="${i.category}">
+        return `<div class="card ${i.pinned ? 'pinned' : ''} ${s ? 'sel' : ''}" data-id="${i.id}" data-idx="${idx}" data-cat="${i.category}">
       <div class="card-chk"><input type="checkbox" ${s ? 'checked' : ''}></div>
       <div class="card-body">
         <div class="card-top">
           ${i.label ? `<span class="card-label"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> ${esc(i.label)}</span>` : ''}
           <span class="card-cat ${i.category}">${catIcons[i.category] || ''} ${catNames[i.category] || 'Văn bản'}</span>
-          ${i.pinned ? '<span class="card-label"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C9.243 2 7 4.243 7 7c0 3.514 4.062 8.384 4.733 9.188a.347.347 0 0 0 .534 0C12.938 15.384 17 10.514 17 7c0-2.757-2.243-5-5-5z"/></svg> Ghim</span>' : ''}
+          ${i.pinned ? '<span class="card-label">📌</span>' : ''}
           <span class="card-time">${timeAgo(i.timestamp)}</span>
         </div>
         <div class="card-txt ${i.category === 'code' ? 'code' : ''}">${c}</div>
-        <div class="card-info"><span>${i.content.length.toLocaleString()} ký tự</span>${i.tabId && i.tabId !== 'all' ? `<span>📁 ${getTabName(i.tabId)}</span>` : ''}</div>
       </div>
       <div class="card-acts">
-        <button class="ca copy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <button class="ca paste" title="Dán"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><rect x="4" y="4" width="16" height="18" rx="2"/><path d="m9 14 2 2 4-4"/></svg></button>
         <button class="ca pin ${i.pinned ? 'on' : ''}" title="Ghim"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C9.243 2 7 4.243 7 7c0 3.514 4.062 8.384 4.733 9.188a.347.347 0 0 0 .534 0C12.938 15.384 17 10.514 17 7c0-2.757-2.243-5-5-5z"/></svg></button>
         <button class="ca lbl" title="Đặt tên"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></button>
-        <button class="ca mv" title="Chuyển thẻ"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
         <button class="ca del" title="Xóa"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m19 6-.7 11.2a2 2 0 0 1-2 1.8H7.7a2 2 0 0 1-2-1.8L5 6"/></svg></button>
       </div>
     </div>`;
@@ -127,53 +119,63 @@
 
     function getTabName(id) { const t = tabs.find(x => x.id === id); return t ? t.name : ''; }
 
+    // ===== CARD EVENTS — CLICK TO PASTE =====
     function bindCards() {
         itemsEl.querySelectorAll('.card').forEach(card => {
             const id = card.dataset.id;
 
-            // Ctrl+Click = toggle select this item (like Windows Explorer)
-            card.addEventListener('click', (e) => {
-                if (e.target.closest('.ca') || e.target.closest('.card-chk')) return; // ignore action buttons/checkbox
+            // SINGLE CLICK = Paste into active app!
+            card.addEventListener('click', async (e) => {
+                if (e.target.closest('.ca') || e.target.closest('.card-chk')) return;
+
+                // Ctrl+Click = multi-select
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    e.stopPropagation();
-                    // Auto-enter select mode if not already
                     if (!isSelectMode) toggleSel(true);
-                    // Toggle this item's selection
                     if (selectedIds.has(id)) selectedIds.delete(id);
                     else selectedIds.add(id);
                     reRenderSel();
                     updateSelUI();
-                    // Exit select mode if nothing selected
                     if (selectedIds.size === 0 && isSelectMode) toggleSel(false);
                     return;
                 }
+
+                // Normal click = paste and hide!
+                const item = displayItems.find(i => i.id === id);
+                if (item) {
+                    card.style.borderColor = 'var(--success)';
+                    card.style.background = 'var(--acc-bg)';
+                    await window.copas.pasteAndHide(item.content);
+                }
             });
 
-            card.addEventListener('dblclick', () => copyItem(id, card));
+            // Double click = copy only (don't paste, don't hide)
+            card.addEventListener('dblclick', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const item = displayItems.find(i => i.id === id);
+                if (item) {
+                    await window.copas.copyToClipboard(item.content);
+                    toast('📋 Đã copy (không dán)', 'info');
+                }
+            });
+
             card.querySelector('.card-chk input')?.addEventListener('change', e => { e.stopPropagation(); e.target.checked ? selectedIds.add(id) : selectedIds.delete(id); updateSelUI(); });
-            card.querySelector('.ca.copy')?.addEventListener('click', e => { e.stopPropagation(); copyItem(id, card); });
+            card.querySelector('.ca.paste')?.addEventListener('click', async e => {
+                e.stopPropagation();
+                const item = displayItems.find(i => i.id === id);
+                if (item) await window.copas.pasteAndHide(item.content);
+            });
             card.querySelector('.ca.pin')?.addEventListener('click', async e => { e.stopPropagation(); const r = await window.copas.pinItem(id); if (r.success) { toast(r.pinned ? '📌 Đã ghim!' : 'Đã bỏ ghim', 'info'); await refresh(); } });
             card.querySelector('.ca.lbl')?.addEventListener('click', e => { e.stopPropagation(); showLabelDlg(id); });
-            card.querySelector('.ca.mv')?.addEventListener('click', e => { e.stopPropagation(); showMoveDlg(id, e); });
             card.querySelector('.ca.del')?.addEventListener('click', async e => { e.stopPropagation(); await window.copas.deleteItem(id); toast('🗑 Đã xóa!', 'info'); await refresh(); });
         });
-    }
-
-    async function copyItem(id, card) {
-        const item = allItems.find(i => i.id === id);
-        if (!item) return;
-        await window.copas.copyToClipboard(item.content);
-        toast('✅ Đã copy!', 'success');
-        if (card) { card.style.borderColor = 'var(--success)'; setTimeout(() => card.style.borderColor = '', 400); }
     }
 
     // ===== KEYBOARD SHORTCUTS =====
     function bindEvents() {
         // Window
-        $('#btn-min').addEventListener('click', () => window.copas.minimize());
-        $('#btn-max').addEventListener('click', () => window.copas.maximize());
-        $('#btn-close').addEventListener('click', () => window.copas.close());
+        $('#btn-close').addEventListener('click', () => window.copas.hidePopup());
         $('#btn-theme').addEventListener('click', toggleTheme);
         $('#btn-settings').addEventListener('click', toggleSettings);
         $('#close-settings').addEventListener('click', () => settingsPanel.style.display = 'none');
@@ -194,7 +196,7 @@
 
         // Select buttons
         $('#btn-sel').addEventListener('click', () => toggleSel(!isSelectMode));
-        $('#btn-bulk').addEventListener('click', bulkCopy);
+        $('#btn-bulk-paste').addEventListener('click', bulkPaste);
         $('#btn-del-sel').addEventListener('click', deleteSel);
 
         // Settings
@@ -203,8 +205,6 @@
         $$('.th-opt').forEach(b => b.addEventListener('click', () => { $$('.th-opt').forEach(x => x.classList.remove('active')); b.classList.add('active'); }));
 
         document.addEventListener('click', closeMenus);
-
-        // ===== GLOBAL KEYBOARD HANDLER =====
         document.addEventListener('keydown', handleKeyDown);
     }
 
@@ -212,136 +212,100 @@
         const ctrl = e.ctrlKey || e.metaKey;
         const shift = e.shiftKey;
         const key = e.key;
-
-        // Don't capture when typing in inputs
         const inInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
         const inDlg = dlgRoot.children.length > 0;
 
-        // F1 → Guide
         if (key === 'F1') { e.preventDefault(); toggleGuide(); return; }
-
-        // Ctrl+, → Settings
         if (ctrl && key === ',') { e.preventDefault(); toggleSettings(); return; }
-
-        // Ctrl+T → New tab
         if (ctrl && key === 't' && !shift) { e.preventDefault(); showNewTabDlg(); return; }
 
-        // Escape → Close panels / clear search / exit select
+        // Escape → hide popup
         if (key === 'Escape') {
-            if (inDlg) return; // dialog handles its own escape
+            if (inDlg) return;
             if (settingsPanel.style.display !== 'none') { settingsPanel.style.display = 'none'; return; }
             if (guidePanel.style.display !== 'none') { guidePanel.style.display = 'none'; return; }
             if (searchQuery) { clearSearch(); return; }
             if (isSelectMode) { toggleSel(false); return; }
-            closeMenus();
+            // Hide popup!
+            window.copas.hidePopup();
             return;
         }
 
-        // Ctrl+F → Focus search
         if (ctrl && key === 'f' && !shift) { e.preventDefault(); searchInput.focus(); return; }
-
-        // Don't capture below shortcuts when in input fields
         if (inInput || inDlg) return;
 
-        // Ctrl+A → Toggle select / select all
+        // Ctrl+A → select mode / select all
         if (ctrl && key === 'a' && !shift) {
             e.preventDefault();
             if (!isSelectMode) {
                 toggleSel(true);
             } else {
-                // Select all visible items
                 const cards = itemsEl.querySelectorAll('.card');
-                if (selectedIds.size === cards.length) {
-                    selectedIds.clear();
-                } else {
-                    cards.forEach(c => selectedIds.add(c.dataset.id));
-                }
+                if (selectedIds.size === cards.length) selectedIds.clear();
+                else cards.forEach(c => selectedIds.add(c.dataset.id));
                 reRenderSel();
                 updateSelUI();
             }
             return;
         }
 
-        // Ctrl+Shift+C → Bulk copy
+        // Ctrl+Shift+C → copy only (no paste)
         if (ctrl && shift && (key === 'c' || key === 'C')) {
             e.preventDefault();
-            if (selectedIds.size > 0) bulkCopy();
+            if (selectedIds.size > 0) bulkCopyOnly();
             else toast('Chọn mục trước (Ctrl+A)', 'info');
             return;
         }
 
-        // Delete / Backspace → Delete selected
-        if ((key === 'Delete' || key === 'Backspace') && isSelectMode && selectedIds.size > 0) {
+        // Enter → paste selected / paste focused
+        if (key === 'Enter') {
             e.preventDefault();
-            deleteSel();
+            if (isSelectMode && selectedIds.size > 0) {
+                bulkPaste();
+            } else if (focusedIndex >= 0 && focusedIndex < displayItems.length) {
+                window.copas.pasteAndHide(displayItems[focusedIndex].content);
+            }
             return;
         }
 
-        // Arrow ↑/↓ → Navigate items
+        // Delete → delete selected
+        if ((key === 'Delete' || key === 'Backspace') && isSelectMode && selectedIds.size > 0) {
+            e.preventDefault(); deleteSel(); return;
+        }
+
+        // Arrow ↑/↓
         if (key === 'ArrowDown') {
             e.preventDefault();
-            if (focusedIndex < displayItems.length - 1) {
-                focusedIndex++;
-                highlightFocused();
-                scrollToFocused();
-            }
+            if (focusedIndex < displayItems.length - 1) { focusedIndex++; highlightFocused(); scrollToFocused(); }
             return;
         }
         if (key === 'ArrowUp') {
             e.preventDefault();
-            if (focusedIndex > 0) {
-                focusedIndex--;
-                highlightFocused();
-                scrollToFocused();
-            }
+            if (focusedIndex > 0) { focusedIndex--; highlightFocused(); scrollToFocused(); }
             return;
         }
 
-        // Enter → Copy focused item
-        if (key === 'Enter' && focusedIndex >= 0 && focusedIndex < displayItems.length) {
-            e.preventDefault();
-            const item = displayItems[focusedIndex];
-            const card = itemsEl.querySelector(`[data-idx="${focusedIndex}"]`);
-            copyItem(item.id, card);
-            return;
-        }
-
-        // Space → Toggle select focused item
+        // Space → toggle select
         if (key === ' ' && isSelectMode && focusedIndex >= 0) {
             e.preventDefault();
             const item = displayItems[focusedIndex];
             if (selectedIds.has(item.id)) selectedIds.delete(item.id);
             else selectedIds.add(item.id);
-            reRenderSel();
-            updateSelUI();
+            reRenderSel(); updateSelUI();
             return;
         }
     }
 
     function highlightFocused() {
-        itemsEl.querySelectorAll('.card').forEach((c, i) => {
-            c.classList.toggle('focused', i === focusedIndex);
-        });
+        itemsEl.querySelectorAll('.card').forEach((c, i) => c.classList.toggle('focused', i === focusedIndex));
     }
-
     function scrollToFocused() {
         const card = itemsEl.querySelector(`[data-idx="${focusedIndex}"]`);
         if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
-
     function clearSearch() { searchInput.value = ''; searchQuery = ''; sClear.classList.remove('vis'); loadItems(); }
-
-    function toggleSettings() {
-        guidePanel.style.display = 'none';
-        const show = settingsPanel.style.display === 'none';
-        settingsPanel.style.display = show ? 'flex' : 'none';
-        if (show) populateSettings();
-    }
-
-    function toggleGuide() {
-        settingsPanel.style.display = 'none';
-        guidePanel.style.display = guidePanel.style.display === 'none' ? 'flex' : 'none';
-    }
+    function toggleSettings() { guidePanel.style.display = 'none'; const s = settingsPanel.style.display === 'none'; settingsPanel.style.display = s ? 'flex' : 'none'; if (s) populateSettings(); }
+    function toggleGuide() { settingsPanel.style.display = 'none'; guidePanel.style.display = guidePanel.style.display === 'none' ? 'flex' : 'none'; }
 
     // ===== SELECT MODE =====
     function toggleSel(on) {
@@ -354,7 +318,7 @@
     }
     function updateSelUI() {
         selCountEl.textContent = `${selectedIds.size} đã chọn`;
-        $('#btn-bulk').disabled = !selectedIds.size;
+        $('#btn-bulk-paste').disabled = !selectedIds.size;
         $('#btn-del-sel').disabled = !selectedIds.size;
     }
     function reRenderSel() {
@@ -364,15 +328,26 @@
             if (cb) cb.checked = selectedIds.has(c.dataset.id);
         });
     }
-    async function bulkCopy() {
+
+    // Paste selected items AND hide
+    async function bulkPaste() {
         if (!selectedIds.size) return;
         const contents = [];
-        // Maintain order from displayItems
+        displayItems.forEach(i => { if (selectedIds.has(i.id)) contents.push(i.content); });
+        toggleSel(false);
+        await window.copas.bulkPasteAndHide(contents);
+    }
+
+    // Copy only (don't paste, don't hide)
+    async function bulkCopyOnly() {
+        if (!selectedIds.size) return;
+        const contents = [];
         displayItems.forEach(i => { if (selectedIds.has(i.id)) contents.push(i.content); });
         await window.copas.bulkCopy(contents);
-        toast(`✅ Đã copy ${contents.length} mục!`, 'success');
+        toast(`📋 Đã copy ${contents.length} mục`, 'success');
         toggleSel(false);
     }
+
     async function deleteSel() {
         if (!selectedIds.size) return;
         showConfirm('Xóa đã chọn?', `Xóa ${selectedIds.size} mục?`, async () => {
@@ -402,9 +377,7 @@
         settingsPanel.style.display = 'none';
         updateGuideShortcut();
     }
-    function updateGuideShortcut() {
-        const el = $('#guide-sc'); if (el) el.textContent = settings.shortcutToggle || 'Ctrl+Shift+V';
-    }
+    function updateGuideShortcut() { const el = $('#guide-sc'); if (el) el.textContent = settings.shortcutToggle || 'Ctrl+Shift+V'; }
     function setupShortcutRecorder() {
         $$('.sc-rec').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -429,6 +402,11 @@
     function bindRealtime() {
         window.copas.onClipboardUpdate(async item => { allItems.unshift(item); await loadItems(); renderTabs(); updateStats(); scrollEl.scrollTo({ top: 0, behavior: 'smooth' }); });
         window.copas.onHistoryCleared(() => refresh());
+        // When popup is shown, focus search
+        window.copas.onPopupShown(() => {
+            searchInput.focus();
+            searchInput.select();
+        });
     }
     async function refresh() { await loadAllItems(); await loadItems(); renderTabs(); updateStats(); }
     async function updateStats() {
@@ -483,14 +461,6 @@
         ov.querySelector('#lb-rm')?.addEventListener('click', async () => { await window.copas.labelItem({ id, label: '' }); toast('Đã xóa tên', 'info'); ov.remove(); await refresh(); });
         setTimeout(() => ov.querySelector('#lb-in')?.focus(), 100);
     }
-    function showMoveDlg(id, ev) {
-        closeMenus(); const m = mk('div', 'ctx-menu'); m.style.left = Math.min(ev.clientX, innerWidth - 180) + 'px'; m.style.top = Math.min(ev.clientY, innerHeight - 200) + 'px';
-        const ut = tabs.filter(t => t.id !== 'all');
-        m.innerHTML = `<div style="padding:6px 12px;font-size:10px;font-weight:800;color:var(--c4);letter-spacing:.5px">CHUYỂN THẺ</div>${ut.map(t => `<button class="ctx-item" data-t="${t.id}">${t.icon} ${esc(t.name)}</button>`).join('')}<div class="ctx-sep"></div><button class="ctx-item" data-t="">📋 Bỏ khỏi thẻ</button>`;
-        document.body.appendChild(m);
-        m.addEventListener('click', async e => { const tid = e.target.closest('.ctx-item')?.dataset.t; m.remove(); if (tid !== undefined) { await window.copas.moveToTab({ itemId: id, tabId: tid || null }); toast('📁 Đã chuyển!', 'success'); await refresh(); } });
-        ev.stopPropagation();
-    }
     function showConfirm(title, msg, onOk) {
         const ov = mk('div', 'dlg-overlay');
         ov.innerHTML = `<div class="dlg-box"><div class="dlg-title">${title}</div><div class="dlg-body">${msg}</div><div class="dlg-foot"><button class="dlg-btn cancel">Hủy</button><button class="dlg-btn danger">Xóa</button></div></div>`;
@@ -511,41 +481,21 @@
 
     // ===== AUTO UPDATE =====
     async function bindAutoUpdate() {
-        // Show version in stats
-        try {
-            const ver = await window.copas.getVersion();
-            const statEl = document.querySelector('.sb-stats');
-            if (statEl && ver) statEl.innerHTML += ` · v${ver}`;
-        } catch { }
-
-        // Listen for update events
+        try { const ver = await window.copas.getVersion(); const el = $('.sb-stats'); if (el && ver) el.innerHTML += ` · v${ver}`; } catch { }
         window.copas.onUpdateStatus((data) => {
-            // Remove existing update banner
             document.querySelector('.update-banner')?.remove();
-
-            if (data.status === 'available') {
-                showUpdateBanner(`⬇️ Đang tải bản cập nhật v${data.version}...`, false);
-            }
-            if (data.status === 'downloading') {
-                showUpdateBanner(`⬇️ Đang tải... ${data.percent}%`, false);
-            }
-            if (data.status === 'ready') {
-                showUpdateBanner(`✅ Bản cập nhật v${data.version} sẵn sàng!`, true);
-            }
+            if (data.status === 'available') showUpdateBanner(`⬇️ Đang tải v${data.version}...`, false);
+            if (data.status === 'downloading') showUpdateBanner(`⬇️ ${data.percent}%`, false);
+            if (data.status === 'ready') showUpdateBanner(`✅ v${data.version} sẵn sàng!`, true);
         });
     }
-
     function showUpdateBanner(msg, showInstall) {
         document.querySelector('.update-banner')?.remove();
         const banner = mk('div', 'update-banner');
-        banner.innerHTML = `<span>${msg}</span>${showInstall ? '<button class="update-btn" id="install-update">🔄 Cập nhật ngay</button>' : ''}`;
+        banner.innerHTML = `<span>${msg}</span>${showInstall ? '<button class="update-btn" id="install-update">🔄 Cập nhật</button>' : ''}`;
         const content = document.querySelector('.content');
         content.insertBefore(banner, content.firstChild);
-        if (showInstall) {
-            document.querySelector('#install-update')?.addEventListener('click', () => {
-                window.copas.installUpdate();
-            });
-        }
+        if (showInstall) document.querySelector('#install-update')?.addEventListener('click', () => window.copas.installUpdate());
     }
 
     init();

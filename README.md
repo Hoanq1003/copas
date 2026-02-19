@@ -39,7 +39,18 @@
 Tải file `.exe` từ [Releases](../../releases/latest) và chạy để cài đặt.
 
 ### macOS
-Tải file `.dmg` từ [Releases](../../releases/latest), mở và kéo CoPas vào Applications.
+1. Tải file `.dmg` từ [Releases](../../releases/latest)
+2. Mở và kéo CoPas vào Applications
+3. **Nếu báo "is damaged"**, mở Terminal và chạy:
+```bash
+xattr -cr /Applications/CoPas.app
+```
+4. Mở lại CoPas — chạy bình thường!
+
+> ⚠️ Lỗi "damaged" xảy ra vì app chưa có chứng chỉ Apple Developer. Lệnh trên xóa đánh dấu "quarantine" từ macOS.
+
+### 🔄 Tự động cập nhật
+Khi có bản mới trên GitHub Releases, CoPas sẽ tự tải về và hiện nút "Cập nhật ngay".
 
 ## 🛠 Build từ source
 

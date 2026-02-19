@@ -45,7 +45,7 @@ Tải file `.dmg` từ [Releases](../../releases/latest), mở và kéo CoPas v�
 
 ```bash
 # Clone repo
-git clone https://github.com/YOUR_USERNAME/copas.git
+git clone https://github.com/Hoanq1003/copas.git
 cd copas
 
 # Cài dependencies

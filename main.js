@@ -1,6 +1,7 @@
-const { app, BrowserWindow, clipboard, ipcMain, Tray, Menu, globalShortcut, nativeImage } = require('electron');
+const { app, BrowserWindow, clipboard, ipcMain, Tray, Menu, globalShortcut, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
 
 let db, mainWindow, tray, isQuitting = false, lastClipboardText = '', pollInterval = null;
 const DB_PATH = path.join(app.getPath('userData'), 'copas-data.json');
@@ -182,6 +183,43 @@ function setupIPC() {
   ipcMain.on('window-maximize', () => { if (mainWindow) mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(); });
   ipcMain.on('window-close', () => { if (mainWindow) mainWindow.hide(); });
   ipcMain.on('window-quit', () => { isQuitting = true; app.quit(); });
+
+  // Auto-update
+  ipcMain.handle('check-for-update', () => { autoUpdater.checkForUpdates(); });
+  ipcMain.handle('install-update', () => { autoUpdater.quitAndInstall(); });
+  ipcMain.handle('get-version', () => app.getVersion());
+}
+
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.logger = console;
+
+  autoUpdater.on('checking-for-update', () => {
+    sendToRenderer('update-status', { status: 'checking' });
+  });
+  autoUpdater.on('update-available', (info) => {
+    sendToRenderer('update-status', { status: 'available', version: info.version });
+  });
+  autoUpdater.on('update-not-available', () => {
+    sendToRenderer('update-status', { status: 'up-to-date' });
+  });
+  autoUpdater.on('download-progress', (progress) => {
+    sendToRenderer('update-status', { status: 'downloading', percent: Math.round(progress.percent) });
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    sendToRenderer('update-status', { status: 'ready', version: info.version });
+  });
+  autoUpdater.on('error', (err) => {
+    sendToRenderer('update-status', { status: 'error', message: err.message });
+  });
+
+  // Check for updates 3 seconds after launch
+  setTimeout(() => { autoUpdater.checkForUpdates().catch(() => { }); }, 3000);
+}
+
+function sendToRenderer(channel, data) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, data);
 }
 
 // Single instance
@@ -193,6 +231,7 @@ app.whenReady().then(async () => {
   await initDB();
   createWindow(); createTray(); setupIPC();
   startClipboardMonitoring(); registerShortcuts();
+  setupAutoUpdater();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin' && isQuitting) app.quit(); });
 app.on('activate', () => { if (!mainWindow) createWindow(); else mainWindow.show(); });

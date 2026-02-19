@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld('copas', {
     onClipboardUpdate: (cb) => ipcRenderer.on('clipboard-updated', (_, item) => cb(item)),
     onHistoryCleared: (cb) => ipcRenderer.on('history-cleared', () => cb()),
 
+    // Updates
+    checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+    installUpdate: () => ipcRenderer.invoke('install-update'),
+    getVersion: () => ipcRenderer.invoke('get-version'),
+    onUpdateStatus: (cb) => ipcRenderer.on('update-status', (_, data) => cb(data)),
+
     // Window
     minimize: () => ipcRenderer.send('window-minimize'),
     maximize: () => ipcRenderer.send('window-maximize'),

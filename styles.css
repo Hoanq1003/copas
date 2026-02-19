@@ -1491,3 +1491,7 @@ mark {
   border-radius: 2px;
   padding: 0 2px
 }
+/* == UPDATE BANNER == */
+.update-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;background:linear-gradient(135deg,var(--acc-bg2),var(--acc-bg));border-bottom:1px solid var(--bdr-acc);font-size:12px;font-weight:600;color:var(--acc);animation:ci .3s ease-out}
+.update-btn{padding:5px 14px;border:none;border-radius:var(--r-s);background:var(--acc);color:#fff;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;transition:var(--trans);white-space:nowrap}
+.update-btn:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 3px 10px var(--acc-bg2)}

@@ -40,6 +40,7 @@
         bindEvents();
         bindRealtime();
         updateGuideShortcut();
+        bindAutoUpdate();
     }
 
     // ===== THEME =====
@@ -507,6 +508,45 @@
     function fmtB(b) { if (!b) return '0 B'; const k = 1024, s = ['B', 'KB', 'MB', 'GB'], i = Math.floor(Math.log(b) / Math.log(k)); return (b / Math.pow(k, i)).toFixed(1) + ' ' + s[i] }
     function mk(t, c) { const e = document.createElement(t); if (c) e.className = c; return e }
     function toast(msg, type = 'info') { const t = mk('div', `toast ${type}`); t.textContent = msg; toastWrap.appendChild(t); setTimeout(() => t.remove(), 2300) }
+
+    // ===== AUTO UPDATE =====
+    async function bindAutoUpdate() {
+        // Show version in stats
+        try {
+            const ver = await window.copas.getVersion();
+            const statEl = document.querySelector('.sb-stats');
+            if (statEl && ver) statEl.innerHTML += ` · v${ver}`;
+        } catch { }
+
+        // Listen for update events
+        window.copas.onUpdateStatus((data) => {
+            // Remove existing update banner
+            document.querySelector('.update-banner')?.remove();
+
+            if (data.status === 'available') {
+                showUpdateBanner(`⬇️ Đang tải bản cập nhật v${data.version}...`, false);
+            }
+            if (data.status === 'downloading') {
+                showUpdateBanner(`⬇️ Đang tải... ${data.percent}%`, false);
+            }
+            if (data.status === 'ready') {
+                showUpdateBanner(`✅ Bản cập nhật v${data.version} sẵn sàng!`, true);
+            }
+        });
+    }
+
+    function showUpdateBanner(msg, showInstall) {
+        document.querySelector('.update-banner')?.remove();
+        const banner = mk('div', 'update-banner');
+        banner.innerHTML = `<span>${msg}</span>${showInstall ? '<button class="update-btn" id="install-update">🔄 Cập nhật ngay</button>' : ''}`;
+        const content = document.querySelector('.content');
+        content.insertBefore(banner, content.firstChild);
+        if (showInstall) {
+            document.querySelector('#install-update')?.addEventListener('click', () => {
+                window.copas.installUpdate();
+            });
+        }
+    }
 
     init();
 })();

@@ -17,6 +17,16 @@
     const isWin = navigator.userAgent.includes('Win');
     document.body.classList.add(isMac ? 'os-mac' : 'os-win');
 
+    // ===== PREMIUM / DEV MODE =====
+    // Set to false for production release to lock premium features
+    const DEV_MODE = true;
+    function isPremium() { return DEV_MODE; }
+    function requirePremium(featureName) {
+        if (isPremium()) return true;
+        toast(`🔒 "${featureName}" là tính năng Premium. Nâng cấp để sử dụng!`, 'warning');
+        return false;
+    }
+
     // Tauri Backend Shim
     const { invoke } = window.__TAURI__.core;
     const { listen } = window.__TAURI__.event;
@@ -299,7 +309,10 @@
 
         // Select buttons
         $('#btn-sel').addEventListener('click', () => toggleSel(!isSelectMode));
-        $('#btn-scr').addEventListener('click', startScreenshot);
+        $('#btn-scr').addEventListener('click', () => {
+            if (!requirePremium('Chụp màn hình')) return;
+            startScreenshot();
+        });
         $('#btn-bulk-paste').addEventListener('click', bulkPaste);
         $('#btn-del-sel').addEventListener('click', deleteSel);
 
@@ -735,6 +748,7 @@
             setTimeout(() => window.copas.hidePopup(), 500);
         });
         $('#ic-copy').addEventListener('click', async () => {
+            if (!requirePremium('Trích xuất OCR')) return;
             // OCR: Extract text from cropped area
             const x = Math.min(sx, curX), y = Math.min(sy, curY);
             const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
@@ -807,17 +821,18 @@
             ctx.clearRect(x, y, w, h);
             ctx.drawImage(cropImg, x, y, w, h, x, y, w, h);
 
+            const accColor = getComputedStyle(document.body).getPropertyValue('--acc').trim() || '#16a34a';
             // Selection border with glow
-            ctx.strokeStyle = '#0ea5e9';
+            ctx.strokeStyle = accColor;
             ctx.lineWidth = 2;
-            ctx.shadowColor = '#0ea5e9';
+            ctx.shadowColor = accColor;
             ctx.shadowBlur = 8;
             ctx.strokeRect(x, y, w, h);
             ctx.shadowBlur = 0;
 
             // Corner handles
             const hs = 5;
-            ctx.fillStyle = '#0ea5e9';
+            ctx.fillStyle = accColor;
             [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(([cx, cy]) => {
                 ctx.fillRect(cx - hs, cy - hs, hs * 2, hs * 2);
             });
@@ -849,6 +864,7 @@
     let vaultUnlocked = false;
     function bindVault() {
         $('#btn-vault').addEventListener('click', async () => {
+            if (!requirePremium('Vault bảo mật')) return;
             const res = await window.copas.hasVaultPin();
             if (!res.hasPin) {
                 // Setup new PIN

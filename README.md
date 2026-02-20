@@ -5,6 +5,7 @@
 ## ✨ Tính năng
 
 - 📋 **Tự động lưu** mọi nội dung bạn copy (văn bản + hình ảnh)
+- 🖱 **Click để dán** — click mục bất kỳ → tự dán vào app đang mở
 - 🗂 **Hệ thống thẻ** — phân loại nội dung theo nhóm tùy ý
 - 🏷 **Đặt tên mục** — gắn nhãn dễ nhận biết
 - 📌 **Ghim** nội dung quan trọng
@@ -17,60 +18,68 @@
 
 | Phím tắt | Hành động |
 |----------|-----------|
-| `Ctrl+Shift+V` (hoặc `Cmd+Shift+V`) | Mở / Ẩn CoPas |
-| `Ctrl+Click` | Chọn từng mục |
+| `Cmd+Shift+V` / `Ctrl+Shift+V` | Mở / Ẩn CoPas |
+| `Click` | Dán mục vào app đích |
+| `Ctrl+Click` | Chọn nhiều mục |
+| `Enter` | Dán mục đang focus / đã chọn |
+| `Double Click` | Copy (không dán) |
 | `Ctrl+A` | Chọn tất cả |
 | `Ctrl+Shift+C` | Copy hàng loạt |
-| `↑` / `↓` | Di chuyển giữa mục |
-| `Enter` | Copy mục đang focus |
 | `Delete` | Xóa mục đã chọn |
 | `Ctrl+T` | Tạo thẻ mới |
 | `Ctrl+,` | Cài đặt |
-| `F1` | Hướng dẫn |
-
-## 🚀 Cách dán hàng loạt (3 bước)
-
-1. **Copy** nội dung từ bất kỳ đâu  
-2. **Ctrl+Click** chọn các mục, hoặc **Ctrl+A** chọn tất cả  
-3. **Ctrl+Shift+C** → qua app đích → **Ctrl+V** dán!
+| `Escape` | Ẩn CoPas |
 
 ## 📦 Cài đặt
 
-### macOS (Apple Silicon)
-1. Tải file `.dmg` từ [**Releases**](https://github.com/Hoanq1003/copas/releases/latest)
-2. Mở và kéo CoPas vào Applications
-3. **Nếu báo "is damaged"**, mở Terminal và chạy:
-```bash
-xattr -cr /Applications/CoPas.app
-```
-4. Mở lại CoPas — chạy bình thường!
+Tải bản mới nhất từ [**Releases**](https://github.com/Hoanq1003/copas/releases/latest).
 
-> ⚠️ Lỗi "damaged" xảy ra vì app chưa có chứng chỉ Apple Developer. Lệnh trên xóa đánh dấu "quarantine" từ macOS.
+### 🍎 macOS
 
-### Windows
-> 🔜 Sắp có — đang phát triển bản Windows.
+1. Tải file `.dmg` phù hợp:
+   - **Apple Silicon** (M1/M2/M3/M4): `CoPas_x.x.x_aarch64.dmg`
+   - **Intel**: `CoPas_x.x.x_x64.dmg`
+2. Mở file `.dmg` → kéo **CoPas** vào thư mục **Applications**
+3. Mở CoPas từ Applications
+
+> ⚠️ **Nếu gặp lỗi "is damaged" hoặc "can't be opened":**
+> Mở **Terminal** và chạy lệnh sau, rồi mở lại CoPas:
+> ```bash
+> xattr -cr /Applications/CoPas.app
+> ```
+> Lỗi này xảy ra vì app chưa có chứng chỉ Apple Developer ($99/năm). Lệnh trên xóa cờ quarantine của macOS.
+
+### 🪟 Windows
+
+1. Tải file `CoPas_x.x.x_x64-setup.exe`
+2. Chạy file cài đặt → làm theo hướng dẫn
+3. Mở CoPas từ Start Menu hoặc Desktop
+
+> 💡 Nếu Windows SmartScreen cảnh báo, nhấn **More info** → **Run anyway**.
+
+## 🚀 Cách sử dụng
+
+1. **Copy** nội dung từ bất kỳ đâu — CoPas tự động lưu
+2. Nhấn **Cmd+Shift+V** (Mac) hoặc **Ctrl+Shift+V** (Windows) — popup xuất hiện
+3. **Click** mục cần dán → CoPas tự dán và ẩn!
+
+### Dán nhiều mục
+1. **Ctrl+Click** chọn các mục
+2. Nhấn **Enter** → tất cả được dán!
 
 ## 🛠 Build từ source
 
 ```bash
-# Clone repo
 git clone https://github.com/Hoanq1003/copas.git
 cd copas
-
-# Cài dependencies
 npm install
-
-# Chạy dev
-npm run tauri dev
-
-# Build installer
-npm run tauri build
+npm run tauri dev      # Chạy dev
+npm run tauri build    # Build installer
 ```
 
-### Yêu cầu hệ thống để build
+### Yêu cầu
 - [Rust](https://rustup.rs/) (stable)
 - [Node.js](https://nodejs.org/) >= 18
-- Tauri CLI: `npm install -g @tauri-apps/cli`
 
 ## 📝 License
 

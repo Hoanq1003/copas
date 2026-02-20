@@ -44,6 +44,13 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS code signing & notarization (optional — set secrets in repo settings)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'CoPas ${{ github.ref_name }}'
@@ -55,10 +62,17 @@ jobs:
             - **macOS (Apple Silicon)**: Download `aarch64.dmg`
             - **macOS (Intel)**: Download `x64.dmg`
 
-            ### How to use
-            1. Download the installer for your platform
-            2. Install and launch CoPas
-            3. Use **Ctrl+Shift+V** (or **Cmd+Shift+V** on Mac) to open the clipboard popup
+            ### Cài đặt trên macOS
+            1. Tải `.dmg` → mở → kéo CoPas vào Applications
+            2. Nếu gặp lỗi "is damaged", mở Terminal chạy:
+               ```
+               xattr -cr /Applications/CoPas.app
+               ```
+            3. Mở lại CoPas bình thường
+
+            ### Sử dụng
+            - **Cmd+Shift+V** (Mac) hoặc **Ctrl+Shift+V** (Windows) để mở popup
+            - **Click** vào mục → tự dán vào app đang dùng
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}

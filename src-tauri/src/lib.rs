@@ -120,6 +120,7 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         // Handle macOS dock icon click → show popup
+        #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Reopen { .. } = event {
             show_popup(app_handle);
         }

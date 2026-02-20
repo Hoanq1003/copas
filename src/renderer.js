@@ -12,6 +12,44 @@
 (function () {
     'use strict';
 
+    // Tauri Backend Shim
+    const { invoke } = window.__TAURI__.core;
+    const { listen } = window.__TAURI__.event;
+
+    window.copas = {
+        getTabs: () => invoke('get_tabs'),
+        createTab: (data) => invoke('create_tab', { tab: data }),
+        renameTab: (data) => invoke('rename_tab', { tab: data }),
+        deleteTab: (id) => invoke('delete_tab', { id }),
+        getHistory: (opts) => invoke('get_history', { search: opts.search, tabId: opts.tabId, page: opts.page, pageSize: opts.pageSize }),
+        deleteItem: (id) => invoke('delete_item', { id }),
+        deleteMultiple: (ids) => invoke('delete_multiple', { ids }),
+        pinItem: (id) => invoke('pin_item', { id }),
+        moveToTab: (data) => invoke('move_to_tab', { data }),
+        labelItem: (data) => invoke('label_item', { id: data.id, label: data.label }),
+        copyToClipboard: (content) => invoke('copy_to_clipboard', { content }),
+        bulkCopy: (contents) => invoke('bulk_copy', { contents }),
+        clearHistory: (tabId) => invoke('clear_history', { tabId }),
+        getStats: () => invoke('get_stats'),
+        getSettings: () => invoke('get_settings'),
+        setSettings: (s) => invoke('set_settings', { settings: s }),
+        pasteAndHide: (content, imagePath) => invoke('paste_and_hide', { content, imagePath }),
+        bulkPasteAndHide: (contents) => invoke('bulk_paste_and_hide', { contents }),
+        hidePopup: () => invoke('hide_popup'),
+        onClipboardUpdate: (cb) => listen('clipboard-updated', (e) => cb(e.payload)),
+        onHistoryCleared: (cb) => listen('history-cleared', () => cb()),
+        onPopupShown: (cb) => listen('popup-shown', () => cb()),
+        checkForUpdate: () => invoke('check_for_update'),
+        installUpdate: () => invoke('install_update'),
+        getVersion: () => invoke('get_version'),
+        getImageUrl: (filename) => invoke('get_image_url', { filename }),
+        onUpdateStatus: (cb) => listen('update-status', (e) => cb(e.payload)),
+        minimize: () => invoke('window_minimize'),
+        maximize: () => invoke('window_maximize'),
+        close: () => invoke('window_close'),
+        quit: () => invoke('window_quit')
+    };
+
     let tabs = [], activeTabId = 'all', allItems = [], displayItems = [];
     let searchQuery = '', isSelectMode = false, selectedIds = new Set(), settings = {};
     let focusedIndex = -1;
@@ -68,13 +106,32 @@
     }
 
     // ===== ITEMS =====
-    async function loadAllItems() { allItems = (await window.copas.getHistory({ search: '', tabId: 'all', page: 0, pageSize: 9999 })).items; }
+    async function loadAllItems() {
+        let items = (await window.copas.getHistory({ search: '', tabId: 'all', page: 0, pageSize: 9999 })).items;
+        for (let i of items) {
+            if (i.kind === 'image' || i.imagePath) {
+                i.imageUrl = await window.copas.getImageUrl(i.imagePath);
+            }
+        }
+        allItems = items;
+    }
+
     async function loadItems() {
         const r = await window.copas.getHistory({ search: searchQuery, tabId: activeTabId, page: 0, pageSize: 500 });
-        if (!searchQuery && activeTabId === 'all') allItems = r.items;
-        displayItems = r.items;
+        let items = r.items;
+        for (let i of items) {
+            if (i.kind === 'image' || i.imagePath) {
+                i.imageUrl = await window.copas.getImageUrl(i.imagePath);
+            }
+        }
+
+        if (!searchQuery && activeTabId === 'all') allItems = items;
+        displayItems = items;
         renderItems(displayItems);
-        focusedIndex = -1;
+        // Auto-focus first item so Enter works immediately
+        focusedIndex = displayItems.length > 0 ? 0 : -1;
+        highlightFocused();
+        scrollEl.scrollTop = 0;
     }
 
     const catNames = { text: 'Văn bản', link: 'Liên kết', email: 'Email', code: 'Code', phone: 'SĐT', number: 'Số' };
@@ -84,7 +141,8 @@
         email: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="m22 6-10 7L2 6"/></svg>',
         code: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>',
         phone: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
-        number: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>'
+        number: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>',
+        image: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'
     };
 
     function renderItems(items) {
@@ -95,18 +153,26 @@
     }
 
     function cardHTML(i, idx) {
-        const c = searchQuery ? hi(esc(i.content), searchQuery) : esc(i.content);
+        let contentHtml = '';
+        if (i.kind === 'image' && i.imageUrl) {
+            contentHtml = `<img src="${i.imageUrl}" class="card-img" alt="Copied image">`;
+        } else {
+            const rawText = i.contentText || i.content || '';
+            const c = searchQuery ? hi(esc(rawText), searchQuery) : esc(rawText);
+            contentHtml = `<div class="card-txt ${i.category === 'code' ? 'code' : ''}">${c}</div>`;
+        }
+
         const s = selectedIds.has(i.id);
         return `<div class="card ${i.pinned ? 'pinned' : ''} ${s ? 'sel' : ''}" data-id="${i.id}" data-idx="${idx}" data-cat="${i.category}">
       <div class="card-chk"><input type="checkbox" ${s ? 'checked' : ''}></div>
       <div class="card-body">
         <div class="card-top">
           ${i.label ? `<span class="card-label"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> ${esc(i.label)}</span>` : ''}
-          <span class="card-cat ${i.category}">${catIcons[i.category] || ''} ${catNames[i.category] || 'Văn bản'}</span>
+          <span class="card-cat ${i.category}">${catIcons[i.category] || ''} ${catNames[i.category] || 'Hình ảnh'}</span>
           ${i.pinned ? '<span class="card-label">📌</span>' : ''}
           <span class="card-time">${timeAgo(i.timestamp)}</span>
         </div>
-        <div class="card-txt ${i.category === 'code' ? 'code' : ''}">${c}</div>
+        ${contentHtml}
       </div>
       <div class="card-acts">
         <button class="ca paste" title="Dán"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><rect x="4" y="4" width="16" height="18" rx="2"/><path d="m9 14 2 2 4-4"/></svg></button>
@@ -145,7 +211,11 @@
                 if (item) {
                     card.style.borderColor = 'var(--success)';
                     card.style.background = 'var(--acc-bg)';
-                    await window.copas.pasteAndHide(item.content);
+                    if (item.kind === 'image') {
+                        await window.copas.pasteAndHide('', item.imagePath);
+                    } else {
+                        await window.copas.pasteAndHide(item.contentText || item.content || '');
+                    }
                 }
             });
 
@@ -155,8 +225,13 @@
                 e.stopPropagation();
                 const item = displayItems.find(i => i.id === id);
                 if (item) {
-                    await window.copas.copyToClipboard(item.content);
-                    toast('📋 Đã copy (không dán)', 'info');
+                    // Note: bulkCopy currently only supports text in the backend
+                    if (item.kind !== 'image') {
+                        await window.copas.copyToClipboard(item.contentText || item.content || '');
+                        toast('📋 Đã copy (không dán)', 'info');
+                    } else {
+                        toast('Cần dán trực tiếp đối với hình ảnh', 'warning');
+                    }
                 }
             });
 
@@ -164,7 +239,13 @@
             card.querySelector('.ca.paste')?.addEventListener('click', async e => {
                 e.stopPropagation();
                 const item = displayItems.find(i => i.id === id);
-                if (item) await window.copas.pasteAndHide(item.content);
+                if (item) {
+                    if (item.kind === 'image') {
+                        await window.copas.pasteAndHide('', item.imagePath);
+                    } else {
+                        await window.copas.pasteAndHide(item.contentText || item.content || '');
+                    }
+                }
             });
             card.querySelector('.ca.pin')?.addEventListener('click', async e => { e.stopPropagation(); const r = await window.copas.pinItem(id); if (r.success) { toast(r.pinned ? '📌 Đã ghim!' : 'Đã bỏ ghim', 'info'); await refresh(); } });
             card.querySelector('.ca.lbl')?.addEventListener('click', e => { e.stopPropagation(); showLabelDlg(id); });
@@ -263,7 +344,12 @@
             if (isSelectMode && selectedIds.size > 0) {
                 bulkPaste();
             } else if (focusedIndex >= 0 && focusedIndex < displayItems.length) {
-                window.copas.pasteAndHide(displayItems[focusedIndex].content);
+                const item = displayItems[focusedIndex];
+                if (item.kind === 'image') {
+                    window.copas.pasteAndHide('', item.imagePath);
+                } else {
+                    window.copas.pasteAndHide(item.contentText || item.content || '');
+                }
             }
             return;
         }
@@ -333,18 +419,30 @@
     async function bulkPaste() {
         if (!selectedIds.size) return;
         const contents = [];
-        displayItems.forEach(i => { if (selectedIds.has(i.id)) contents.push(i.content); });
+        displayItems.forEach(i => {
+            if (selectedIds.has(i.id) && i.kind !== 'image') contents.push(i.contentText || i.content || '');
+        });
         toggleSel(false);
-        await window.copas.bulkPasteAndHide(contents);
+        if (contents.length > 0) {
+            await window.copas.bulkPasteAndHide(contents);
+        } else {
+            toast('Bulk paste text only', 'info');
+        }
     }
 
     // Copy only (don't paste, don't hide)
     async function bulkCopyOnly() {
         if (!selectedIds.size) return;
         const contents = [];
-        displayItems.forEach(i => { if (selectedIds.has(i.id)) contents.push(i.content); });
-        await window.copas.bulkCopy(contents);
-        toast(`📋 Đã copy ${contents.length} mục`, 'success');
+        displayItems.forEach(i => {
+            if (selectedIds.has(i.id) && i.kind !== 'image') contents.push(i.contentText || i.content || '');
+        });
+        if (contents.length > 0) {
+            await window.copas.bulkCopy(contents);
+            toast(`📋 Đã copy ${contents.length} mục`, 'success');
+        } else {
+            toast('Dán ảnh trực tiếp', 'warning');
+        }
         toggleSel(false);
     }
 
@@ -400,7 +498,16 @@
 
     // ===== REALTIME =====
     function bindRealtime() {
-        window.copas.onClipboardUpdate(async item => { allItems.unshift(item); await loadItems(); renderTabs(); updateStats(); scrollEl.scrollTo({ top: 0, behavior: 'smooth' }); });
+        window.copas.onClipboardUpdate(async item => {
+            if (item.kind === 'image' || item.imagePath) {
+                item.imageUrl = await window.copas.getImageUrl(item.imagePath);
+            }
+            allItems.unshift(item);
+            await loadItems();
+            renderTabs();
+            updateStats();
+            scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+        });
         window.copas.onHistoryCleared(() => refresh());
         // When popup is shown, focus search
         window.copas.onPopupShown(() => {

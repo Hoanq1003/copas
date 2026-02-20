@@ -736,24 +736,32 @@ body {
 }
 
 .card-txt {
-  font-size: 12.5px;
-  color: var(--c1);
-  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  overflow: hidden;
-  white-space: pre-wrap;
-  line-height: 1.55
+  word-break: break-word;
 }
 
 .card-txt.code {
-  font-family: 'Consolas', 'Fira Code', monospace;
-  font-size: 11px;
-  background: var(--bg-chip);
-  padding: 5px 7px;
-  border-radius: var(--r-s);
-  border: 1px solid var(--bdr)
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--bg);
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.card-img {
+  max-width: 100%;
+  max-height: 120px;
+  margin-top: 6px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--border);
 }
 
 .card-info {
@@ -1491,7 +1499,38 @@ mark {
   border-radius: 2px;
   padding: 0 2px
 }
+
 /* == UPDATE BANNER == */
-.update-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;background:linear-gradient(135deg,var(--acc-bg2),var(--acc-bg));border-bottom:1px solid var(--bdr-acc);font-size:12px;font-weight:600;color:var(--acc);animation:ci .3s ease-out}
-.update-btn{padding:5px 14px;border:none;border-radius:var(--r-s);background:var(--acc);color:#fff;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;transition:var(--trans);white-space:nowrap}
-.update-btn:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 3px 10px var(--acc-bg2)}
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, var(--acc-bg2), var(--acc-bg));
+  border-bottom: 1px solid var(--bdr-acc);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--acc);
+  animation: ci .3s ease-out
+}
+
+.update-btn {
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--r-s);
+  background: var(--acc);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: var(--trans);
+  white-space: nowrap
+}
+
+.update-btn:hover {
+  opacity: .9;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px var(--acc-bg2)
+}

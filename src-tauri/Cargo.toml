@@ -30,6 +30,8 @@ sha2 = "0.10"
 image = "0.25"
 tokio = { version = "1", features = ["time", "sync"] }
 dirs = "6"
+xcap = "0.8"
+base64 = "0.22"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

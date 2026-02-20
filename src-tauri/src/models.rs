@@ -45,6 +45,9 @@ pub struct Item {
     /// Legacy: for backward compat with Electron data
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    /// Whether this item is in the vault
+    #[serde(default)]
+    pub in_vault: bool,
 }
 
 impl Item {
@@ -77,6 +80,12 @@ pub struct Settings {
     pub auto_start: bool,
     #[serde(default = "default_paste_delimiter")]
     pub paste_delimiter: String,
+    /// Vault PIN hash (empty = no vault set up yet)
+    #[serde(default)]
+    pub vault_pin_hash: String,
+    /// Vault auto-lock timeout in seconds (0 = never)
+    #[serde(default = "default_vault_timeout")]
+    pub vault_timeout: u64,
 }
 
 impl Default for Settings {
@@ -90,6 +99,8 @@ impl Default for Settings {
             show_notifications: true,
             auto_start: false,
             paste_delimiter: default_paste_delimiter(),
+            vault_pin_hash: String::new(),
+            vault_timeout: default_vault_timeout(),
         }
     }
 }
@@ -113,6 +124,7 @@ fn default_shortcut_paste() -> String {
 fn default_poll_interval() -> u64 { 500 }
 fn default_true() -> bool { true }
 fn default_paste_delimiter() -> String { "\\n".into() }
+fn default_vault_timeout() -> u64 { 300 }
 
 /// Root data structure persisted to JSON
 #[derive(Debug, Clone, Serialize, Deserialize)]

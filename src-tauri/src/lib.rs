@@ -104,6 +104,15 @@ pub fn run() {
             commands::check_for_update,
             commands::install_update,
             commands::get_image_url,
+            commands::capture_screen,
+            commands::copy_image_to_clipboard,
+            commands::window_fullscreen,
+            commands::set_vault_pin,
+            commands::verify_vault_pin,
+            commands::has_vault_pin,
+            commands::move_to_vault,
+            commands::remove_from_vault,
+            commands::get_vault_items,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet">
+  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 
 <body class="theme-light">
@@ -80,6 +81,15 @@
         </button>
       </div>
       <nav class="tab-list" id="tab-list"></nav>
+      <div class="sb-vault">
+        <button class="vault-btn" id="btn-vault" title="Kéo khóa bảo mật">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <span>Kéo khóa</span>
+        </button>
+      </div>
       <div class="sb-stats">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
@@ -105,6 +115,12 @@
           </button>
         </div>
         <div class="tool-btns">
+          <button class="t-btn" id="btn-scr" title="Chụp màn hình (Ctrl+Shift+S)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+              <circle cx="12" cy="13" r="3" />
+            </svg>
+          </button>
           <button class="t-btn" id="btn-sel" title="Chọn (Ctrl+A)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="3" />
@@ -169,7 +185,19 @@
       </div>
       <div class="panel-body">
         <div class="sg">
-          <h3>⌨️ Phím tắt toàn cục</h3>
+          <h3 style="display: flex; align-items: center; gap: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+              height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" class="lucide lucide-keyboard">
+              <path d="M10 8h.01" />
+              <path d="M12 12h.01" />
+              <path d="M14 8h.01" />
+              <path d="M16 12h.01" />
+              <path d="M18 8h.01" />
+              <path d="M6 8h.01" />
+              <path d="M7 16h10" />
+              <path d="M8 12h.01" />
+              <rect width="20" height="16" x="2" y="4" rx="2" />
+            </svg> Phím tắt toàn cục</h3>
           <div class="sr"><label>Mở / Ẩn CoPas</label>
             <div class="sc-wrap"><input class="sc-input" id="set-toggle" readonly placeholder="Nhấn phím..."><button
                 class="sc-rec" data-target="set-toggle">Ghi</button></div>
@@ -177,12 +205,29 @@
           <p class="sh">Nhấn "Ghi" → nhấn tổ hợp phím mong muốn</p>
         </div>
         <div class="sg">
-          <h3>📦 Lưu trữ</h3>
+          <h3 style="display: flex; align-items: center; gap: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+              height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" class="lucide lucide-hard-drive">
+              <line x1="22" x2="2" y1="12" y2="12" />
+              <path
+                d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+              <line x1="6" x2="6.01" y1="16" y2="16" />
+              <line x1="10" x2="10.01" y1="16" y2="16" />
+            </svg> Lưu trữ</h3>
           <div class="sr"><label>Số mục tối đa</label><input type="number" class="sn" id="set-max" min="100" max="10000"
               value="1000"></div>
         </div>
         <div class="sg">
-          <h3>📋 Dán hàng loạt</h3>
+          <h3 style="display: flex; align-items: center; gap: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+              height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" class="lucide lucide-clipboard-list">
+              <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <path d="M12 11h4" />
+              <path d="M12 16h4" />
+              <path d="M8 11h.01" />
+              <path d="M8 16h.01" />
+            </svg> Dán hàng loạt</h3>
           <div class="sr"><label>Ký tự ngăn cách</label>
             <select class="ss" id="set-delim">
               <option value="\\n">Xuống dòng ↵</option>
@@ -194,7 +239,16 @@
           </div>
         </div>
         <div class="sg">
-          <h3>🎨 Giao diện</h3>
+          <h3 style="display: flex; align-items: center; gap: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+              height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" class="lucide lucide-palette">
+              <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+              <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+              <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+              <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+              <path
+                d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+            </svg> Giao diện</h3>
           <div class="theme-sw">
             <button class="th-opt" data-theme="light"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2">
@@ -305,8 +359,37 @@
     </div>
   </div>
 
+  <!-- Vault Unlock Overlay -->
+  <div class="vault-overlay" id="vault-overlay" style="display:none">
+    <div class="vault-card">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5">
+        <rect x="3" y="11" width="18" height="11" rx="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+      <h3 id="vault-title">Mở khóa Vault</h3>
+      <p id="vault-desc">Nhập mã PIN để truy cập dữ liệu bảo mật</p>
+      <input type="password" class="vault-pin-input" id="vault-pin" placeholder="Mã PIN (4-8 số)" maxlength="8"
+        autocomplete="off">
+      <div class="vault-actions">
+        <button class="vault-btn-act cancel" id="vault-cancel">Hủy</button>
+        <button class="vault-btn-act primary" id="vault-ok">Xác nhận</button>
+      </div>
+    </div>
+  </div>
+
   <div id="dialog-root"></div>
   <div class="toast-wrap" id="toast-wrap"></div>
+
+  <!-- Screenshot Overlay -->
+  <div class="img-crop-overlay" id="img-crop-overlay" style="display:none">
+    <canvas id="crop-canvas"></canvas>
+    <div class="img-crop-tools" id="img-crop-tools" style="display:none">
+      <button class="ic-btn" id="ic-copy" title="Copy ảnh">📋 Trích xuất OCR</button>
+      <button class="ic-btn" id="ic-save" title="Lưu và dán">✅ Lưu & Dán</button>
+      <button class="ic-btn danger" id="ic-cancel" title="Hủy">❌ Hủy</button>
+    </div>
+  </div>
+
   <script src="renderer.js"></script>
 </body>
 

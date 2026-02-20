@@ -218,6 +218,45 @@ pub fn copy_to_clipboard(_storage: State<StorageState>, content: String) -> serd
 }
 
 #[tauri::command]
+pub fn copy_image_to_clipboard(base64: String) -> serde_json::Value {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use arboard::ImageData;
+    
+    // Remove "data:image/png;base64," if present
+    let b64 = if let Some(stripped) = base64.strip_prefix("data:image/png;base64,") {
+        stripped
+    } else {
+        &base64
+    };
+
+    match STANDARD.decode(b64) {
+        Ok(buf) => {
+            if let Ok(img) = image::load_from_memory(&buf) {
+                let rgba = img.to_rgba8();
+                let (width, height) = rgba.dimensions();
+                let img_data = ImageData {
+                    width: width as usize,
+                    height: height as usize,
+                    bytes: rgba.into_raw().into(),
+                };
+                
+                if let Ok(mut clipboard) = Clipboard::new() {
+                    if let Err(e) = clipboard.set_image(img_data) {
+                        error!("Failed to copy image to clipboard: {}", e);
+                        return serde_json::json!({"success": false});
+                    }
+                    return serde_json::json!({"success": true});
+                }
+            }
+        },
+        Err(e) => {
+            error!("Failed to decode base64 image: {}", e);
+        }
+    }
+    serde_json::json!({"success": false})
+}
+
+#[tauri::command]
 pub fn bulk_copy(storage: State<StorageState>, contents: Vec<String>) -> serde_json::Value {
     let data = storage.data.lock().unwrap();
     let delim = data
@@ -389,6 +428,13 @@ pub fn window_quit(app_handle: AppHandle) {
     app_handle.exit(0);
 }
 
+#[tauri::command]
+pub fn window_fullscreen(app_handle: AppHandle, fullscreen: bool) {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.set_fullscreen(fullscreen).ok();
+    }
+}
+
 // ============ VERSION ============
 
 #[tauri::command]
@@ -421,4 +467,94 @@ pub fn get_image_url(storage: State<StorageState>, filename: String) -> String {
     } else {
         String::new()
     }
+}
+
+// ============ SCREEN CAPTURE ============
+
+#[tauri::command]
+pub fn capture_screen() -> Result<String, String> {
+    use xcap::Monitor;
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use std::io::Cursor;
+
+    let monitors = Monitor::all().map_err(|e| e.to_string())?;
+    // For simplicity, capture the primary monitor or the first one
+    if let Some(monitor) = monitors.first() {
+        let image = monitor.capture_image().map_err(|e| e.to_string())?;
+        
+        let mut buffer = Cursor::new(Vec::new());
+        image.write_to(&mut buffer, image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
+            
+        let base64_str = STANDARD.encode(buffer.into_inner());
+        Ok(format!("data:image/png;base64,{}", base64_str))
+    } else {
+        Err("No monitor found".to_string())
+    }
+}
+
+// ============ VAULT ============
+
+/// Simple hash for vault PIN (not crypto-grade, but sufficient for local app lock)
+fn simple_hash(pin: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    pin.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
+}
+
+#[tauri::command]
+pub fn set_vault_pin(storage: State<StorageState>, pin: String) -> serde_json::Value {
+    let mut data = storage.data.lock().unwrap();
+    data.settings.vault_pin_hash = simple_hash(&pin);
+    drop(data);
+    storage.save_sync();
+    serde_json::json!({"success": true})
+}
+
+#[tauri::command]
+pub fn verify_vault_pin(storage: State<StorageState>, pin: String) -> serde_json::Value {
+    let data = storage.data.lock().unwrap();
+    let valid = data.settings.vault_pin_hash == simple_hash(&pin);
+    serde_json::json!({"valid": valid})
+}
+
+#[tauri::command]
+pub fn has_vault_pin(storage: State<StorageState>) -> serde_json::Value {
+    let data = storage.data.lock().unwrap();
+    serde_json::json!({"hasPin": !data.settings.vault_pin_hash.is_empty()})
+}
+
+#[tauri::command]
+pub fn move_to_vault(storage: State<StorageState>, id: String) -> serde_json::Value {
+    let mut data = storage.data.lock().unwrap();
+    if let Some(item) = data.items.iter_mut().find(|i| i.id == id) {
+        item.in_vault = true;
+        drop(data);
+        storage.save_sync();
+        serde_json::json!({"success": true})
+    } else {
+        serde_json::json!({"success": false, "error": "Item not found"})
+    }
+}
+
+#[tauri::command]
+pub fn remove_from_vault(storage: State<StorageState>, id: String) -> serde_json::Value {
+    let mut data = storage.data.lock().unwrap();
+    if let Some(item) = data.items.iter_mut().find(|i| i.id == id) {
+        item.in_vault = false;
+        drop(data);
+        storage.save_sync();
+        serde_json::json!({"success": true})
+    } else {
+        serde_json::json!({"success": false, "error": "Item not found"})
+    }
+}
+
+#[tauri::command]
+pub fn get_vault_items(storage: State<StorageState>) -> serde_json::Value {
+    let data = storage.data.lock().unwrap();
+    let vault_items: Vec<&crate::models::Item> = data.items.iter().filter(|i| i.in_vault).collect();
+    serde_json::json!({"items": vault_items})
 }

@@ -12,6 +12,11 @@
 (function () {
     'use strict';
 
+    // ===== OS DETECTION =====
+    const isMac = navigator.userAgent.includes('Mac');
+    const isWin = navigator.userAgent.includes('Win');
+    document.body.classList.add(isMac ? 'os-mac' : 'os-win');
+
     // Tauri Backend Shim
     const { invoke } = window.__TAURI__.core;
     const { listen } = window.__TAURI__.event;
@@ -43,6 +48,15 @@
         installUpdate: () => invoke('install_update'),
         getVersion: () => invoke('get_version'),
         getImageUrl: (filename) => invoke('get_image_url', { filename }),
+        captureScreen: () => invoke('capture_screen'),
+        setFullscreen: (f) => invoke('window_fullscreen', { fullscreen: f }),
+        copyImageToClipboard: (b64) => invoke('copy_image_to_clipboard', { base64: b64 }),
+        setVaultPin: (pin) => invoke('set_vault_pin', { pin }),
+        verifyVaultPin: (pin) => invoke('verify_vault_pin', { pin }),
+        hasVaultPin: () => invoke('has_vault_pin'),
+        moveToVault: (id) => invoke('move_to_vault', { id }),
+        removeFromVault: (id) => invoke('remove_from_vault', { id }),
+        getVaultItems: () => invoke('get_vault_items'),
         onUpdateStatus: (cb) => listen('update-status', (e) => cb(e.payload)),
         minimize: () => invoke('window_minimize'),
         maximize: () => invoke('window_maximize'),
@@ -72,12 +86,17 @@
         updateStats();
         bindEvents();
         bindRealtime();
+        bindScreenshot();
+        bindVault();
         updateGuideShortcut();
         bindAutoUpdate();
     }
 
     // ===== THEME =====
-    function applyTheme(t) { document.body.className = t === 'dark' ? 'theme-dark' : 'theme-light'; }
+    function applyTheme(t) {
+        const osClass = isMac ? 'os-mac' : 'os-win';
+        document.body.className = (t === 'dark' ? 'theme-dark' : 'theme-light') + ' ' + osClass;
+    }
     function toggleTheme() {
         const d = document.body.classList.contains('theme-dark');
         const t = d ? 'light' : 'dark'; applyTheme(t);
@@ -214,7 +233,8 @@
                     if (item.kind === 'image') {
                         await window.copas.pasteAndHide('', item.imagePath);
                     } else {
-                        await window.copas.pasteAndHide(item.contentText || item.content || '');
+                        let text = parseSnippets(item.contentText || item.content || '');
+                        await window.copas.pasteAndHide(text);
                     }
                 }
             });
@@ -235,6 +255,7 @@
                 }
             });
 
+            card.addEventListener('contextmenu', e => { e.preventDefault(); showItemMenu(id, e); });
             card.querySelector('.card-chk input')?.addEventListener('change', e => { e.stopPropagation(); e.target.checked ? selectedIds.add(id) : selectedIds.delete(id); updateSelUI(); });
             card.querySelector('.ca.paste')?.addEventListener('click', async e => {
                 e.stopPropagation();
@@ -243,7 +264,8 @@
                     if (item.kind === 'image') {
                         await window.copas.pasteAndHide('', item.imagePath);
                     } else {
-                        await window.copas.pasteAndHide(item.contentText || item.content || '');
+                        let text = parseSnippets(item.contentText || item.content || '');
+                        await window.copas.pasteAndHide(text);
                     }
                 }
             });
@@ -277,6 +299,7 @@
 
         // Select buttons
         $('#btn-sel').addEventListener('click', () => toggleSel(!isSelectMode));
+        $('#btn-scr').addEventListener('click', startScreenshot);
         $('#btn-bulk-paste').addEventListener('click', bulkPaste);
         $('#btn-del-sel').addEventListener('click', deleteSel);
 
@@ -348,7 +371,8 @@
                 if (item.kind === 'image') {
                     window.copas.pasteAndHide('', item.imagePath);
                 } else {
-                    window.copas.pasteAndHide(item.contentText || item.content || '');
+                    let text = parseSnippets(item.contentText || item.content || '');
+                    window.copas.pasteAndHide(text);
                 }
             }
             return;
@@ -420,7 +444,7 @@
         if (!selectedIds.size) return;
         const contents = [];
         displayItems.forEach(i => {
-            if (selectedIds.has(i.id) && i.kind !== 'image') contents.push(i.contentText || i.content || '');
+            if (selectedIds.has(i.id) && i.kind !== 'image') contents.push(parseSnippets(i.contentText || i.content || ''));
         });
         toggleSel(false);
         if (contents.length > 0) {
@@ -576,9 +600,49 @@
         ov.querySelector('.danger').addEventListener('click', () => { onOk(); ov.remove(); });
         ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
     }
+    function showItemMenu(id, ev) {
+        closeMenus(); const item = displayItems.find(i => i.id === id); if (!item) return;
+        const m = mk('div', 'ctx-menu'); m.style.left = ev.clientX + 'px'; m.style.top = ev.clientY + 'px';
+        const svgUp = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 17L12 7l10 10"/></svg>';
+        const svgLow = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l10 10L22 7"/></svg>';
+        const svgAcc = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>';
+        const svgCopy = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        const svgDel = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m19 6-.7 11.2a2 2 0 0 1-2 1.8H7.7a2 2 0 0 1-2-1.8L5 6"/></svg>';
+        let html = '';
+        if (item.kind !== 'image') html += `<button class="ctx-item" data-a="fmt-up">${svgUp} IN HOA</button><button class="ctx-item" data-a="fmt-low">${svgLow} in thường</button><button class="ctx-item" data-a="fmt-noacc">${svgAcc} Bỏ dấu</button><div class="ctx-sep"></div>`;
+        const svgVault = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        html += `<button class="ctx-item" data-a="copy">${svgCopy} Copy</button>`;
+        if (!item.in_vault) html += `<button class="ctx-item" data-a="vault">${svgVault} Chuyển vào Vault</button>`;
+        else html += `<button class="ctx-item" data-a="unvault">${svgVault} Lấy khỏi Vault</button>`;
+        html += `<button class="ctx-item danger" data-a="del">${svgDel} Xóa</button>`;
+        m.innerHTML = html; document.body.appendChild(m);
+        const r = m.getBoundingClientRect(); if (r.right > innerWidth) m.style.left = (innerWidth - r.width - 8) + 'px'; if (r.bottom > innerHeight) m.style.top = (innerHeight - r.height - 8) + 'px';
+        m.addEventListener('click', async e => {
+            const a = e.target.closest('.ctx-item')?.dataset.a; m.remove(); if (!a) return;
+            if (a === 'copy') {
+                if (item.kind !== 'image') { await window.copas.copyToClipboard(item.contentText || item.content || ''); toast('📋 Đã copy!', 'info'); } else toast('Dán ảnh trực tiếp', 'warning');
+            } else if (a === 'del') { await window.copas.deleteItem(id); toast('🗑 Đã xóa!', 'info'); await refresh(); }
+            else if (a.startsWith('fmt-')) {
+                let txt = item.contentText || item.content || '';
+                if (a === 'fmt-up') txt = txt.toUpperCase();
+                if (a === 'fmt-low') txt = txt.toLowerCase();
+                if (a === 'fmt-noacc') txt = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+                await window.copas.copyToClipboard(txt); toast('✨ Đã format và copy!', 'success');
+            } else if (a === 'vault') {
+                await window.copas.moveToVault(id); toast('🔒 Đã chuyển vào Vault!', 'success'); await refresh();
+            } else if (a === 'unvault') {
+                await window.copas.removeFromVault(id); toast('🔓 Đã lấy khỏi Vault', 'info'); await refresh();
+            }
+        }); ev.stopPropagation();
+    }
     function closeMenus() { document.querySelectorAll('.ctx-menu').forEach(m => m.remove()) }
 
     // ===== UTILS =====
+    function parseSnippets(t) {
+        if (!t || typeof t !== 'string' || !t.includes('{')) return t;
+        const n = new Date();
+        return t.replace(/{date}/gi, n.toLocaleDateString('vi-VN')).replace(/{time}/gi, n.toLocaleTimeString('vi-VN')).replace(/{datetime}/gi, n.toLocaleString('vi-VN'));
+    }
     function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML }
     function hi(t, q) { if (!q) return t; return t.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>') }
     function timeAgo(iso) { const d = (Date.now() - new Date(iso)) / 1e3; if (d < 5) return 'Vừa xong'; if (d < 60) return `${~~d}s`; if (d < 3600) return `${~~(d / 60)}m`; if (d < 86400) return `${~~(d / 3600)}h`; if (d < 604800) return `${~~(d / 86400)}d`; return new Date(iso).toLocaleDateString('vi-VN') }
@@ -603,6 +667,269 @@
         const content = document.querySelector('.content');
         content.insertBefore(banner, content.firstChild);
         if (showInstall) document.querySelector('#install-update')?.addEventListener('click', () => window.copas.installUpdate());
+    }
+
+    // ===== SCREENSHOT =====
+    let cropImg = null, sx = 0, sy = 0, curX = 0, curY = 0, isDragging = false;
+    async function startScreenshot() {
+        try {
+            toast('📸 Đang chụp...', 'info');
+            const b64 = await window.copas.captureScreen();
+            const img = new Image();
+            img.onload = async () => {
+                cropImg = img;
+                await window.copas.setFullscreen(true);
+                setTimeout(() => {
+                    $('#img-crop-overlay').style.display = 'flex';
+                    $('.titlebar').style.display = 'none';
+                    $('.app-body').style.display = 'none';
+                    const cvs = $('#crop-canvas');
+                    cvs.width = window.innerWidth;
+                    cvs.height = window.innerHeight;
+                    drawCrop();
+                }, 300);
+            };
+            img.src = b64;
+        } catch (e) { toast('Lỗi chụp ảnh: ' + e, 'error'); }
+    }
+
+    function bindScreenshot() {
+        const cvs = $('#crop-canvas');
+        const tools = $('#img-crop-tools');
+
+        cvs.addEventListener('mousedown', e => {
+            if (e.target !== cvs) return;
+            isDragging = true;
+            sx = e.clientX; sy = e.clientY; curX = sx; curY = sy;
+            tools.style.display = 'none';
+            drawCrop();
+        });
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            curX = e.clientX; curY = e.clientY;
+            drawCrop();
+        });
+        window.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            if (Math.abs(curX - sx) > 10 && Math.abs(curY - sy) > 10) {
+                tools.style.display = 'flex';
+                tools.style.left = Math.min(curX, sx) + 'px';
+                tools.style.top = Math.max(curY, sy) + 5 + 'px';
+            } else { drawCrop(); }
+        });
+
+        $('#ic-cancel').addEventListener('click', closeScreenshot);
+        $('#ic-save').addEventListener('click', async () => {
+            const x = Math.min(sx, curX), y = Math.min(sy, curY);
+            const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
+            if (w < 10 || h < 10) return;
+            const temp = document.createElement('canvas');
+            temp.width = w; temp.height = h;
+            temp.getContext('2d').drawImage(cropImg, x, y, w, h, 0, 0, w, h);
+
+            const b64 = temp.toDataURL('image/png');
+            await window.copas.copyImageToClipboard(b64);
+            toast('Đã copy ảnh!', 'success');
+            closeScreenshot();
+            setTimeout(() => window.copas.hidePopup(), 500);
+        });
+        $('#ic-copy').addEventListener('click', async () => {
+            // OCR: Extract text from cropped area
+            const x = Math.min(sx, curX), y = Math.min(sy, curY);
+            const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
+            if (w < 10 || h < 10) { toast('Vui lòng chọn vùng cần quét', 'warning'); return; }
+
+            const temp = document.createElement('canvas');
+            temp.width = w; temp.height = h;
+            temp.getContext('2d').drawImage(cropImg, x, y, w, h, 0, 0, w, h);
+            const b64 = temp.toDataURL('image/png');
+
+            closeScreenshot();
+
+            // Show loading
+            const loading = mk('div', 'ocr-loading');
+            loading.innerHTML = '<div class="ocr-spinner"></div><p>🔍 Đang quét chữ (OCR)...</p>';
+            document.body.appendChild(loading);
+
+            try {
+                if (typeof Tesseract !== 'undefined') {
+                    const result = await Tesseract.recognize(b64, 'vie+eng', {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                loading.querySelector('p').textContent = `🔍 Đang quét... ${Math.round((m.progress || 0) * 100)}%`;
+                            }
+                        }
+                    });
+                    const text = result.data.text.trim();
+                    loading.remove();
+                    if (text) {
+                        await window.copas.copyToClipboard(text);
+                        toast(`✅ Đã quét ${text.length} ký tự và copy!`, 'success');
+                    } else {
+                        toast('Không tìm thấy chữ trong ảnh', 'warning');
+                    }
+                } else {
+                    loading.remove();
+                    toast('Tesseract.js chưa tải xong, vui lòng thử lại', 'warning');
+                }
+            } catch (e) {
+                loading.remove();
+                toast('Lỗi OCR: ' + e.message, 'error');
+            }
+        });
+    }
+
+    function drawCrop() {
+        if (!cropImg) return;
+        const cvs = $('#crop-canvas');
+        const ctx = cvs.getContext('2d');
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        // Draw full screenshot dimmed
+        ctx.drawImage(cropImg, 0, 0, cvs.width, cvs.height);
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(0, 0, cvs.width, cvs.height);
+
+        // Draw crosshair guides
+        if (isDragging) {
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(curX, 0); ctx.lineTo(curX, cvs.height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, curY); ctx.lineTo(cvs.width, curY); ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        if (sx !== curX && sy !== curY) {
+            const x = Math.min(sx, curX), y = Math.min(sy, curY);
+            const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
+            // Draw selected area bright
+            ctx.clearRect(x, y, w, h);
+            ctx.drawImage(cropImg, x, y, w, h, x, y, w, h);
+
+            // Selection border with glow
+            ctx.strokeStyle = '#0ea5e9';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#0ea5e9';
+            ctx.shadowBlur = 8;
+            ctx.strokeRect(x, y, w, h);
+            ctx.shadowBlur = 0;
+
+            // Corner handles
+            const hs = 5;
+            ctx.fillStyle = '#0ea5e9';
+            [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(([cx, cy]) => {
+                ctx.fillRect(cx - hs, cy - hs, hs * 2, hs * 2);
+            });
+
+            // Size label
+            const label = `${w} × ${h} px`;
+            ctx.font = '600 12px Inter, sans-serif';
+            ctx.fillStyle = 'rgba(14, 165, 233, 0.9)';
+            const tw = ctx.measureText(label).width;
+            const lx = x + (w - tw - 16) / 2, ly = y - 8;
+            ctx.beginPath();
+            ctx.roundRect(lx, ly - 16, tw + 16, 22, 6);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.fillText(label, lx + 8, ly - 1);
+        }
+    }
+
+    async function closeScreenshot() {
+        $('#img-crop-overlay').style.display = 'none';
+        $('#img-crop-tools').style.display = 'none';
+        $('.titlebar').style.display = 'flex';
+        $('.app-body').style.display = 'flex';
+        cropImg = null; sx = 0; sy = 0; curX = 0; curY = 0;
+        await window.copas.setFullscreen(false);
+    }
+
+    // ===== VAULT =====
+    let vaultUnlocked = false;
+    function bindVault() {
+        $('#btn-vault').addEventListener('click', async () => {
+            const res = await window.copas.hasVaultPin();
+            if (!res.hasPin) {
+                // Setup new PIN
+                $('#vault-title').textContent = 'Tạo mã PIN Vault';
+                $('#vault-desc').textContent = 'Nhập mã PIN mới (4-8 số) để bảo vệ dữ liệu của bạn';
+                $('#vault-ok').textContent = 'Tạo PIN';
+                showVaultOverlay(async (pin) => {
+                    if (pin.length < 4) { toast('PIN cần ít nhất 4 ký tự', 'warning'); return false; }
+                    await window.copas.setVaultPin(pin);
+                    toast('🔐 Đã tạo PIN Vault!', 'success');
+                    vaultUnlocked = true;
+                    showVaultItems();
+                    return true;
+                });
+            } else if (!vaultUnlocked) {
+                // Unlock vault
+                $('#vault-title').textContent = 'Mở khóa Vault';
+                $('#vault-desc').textContent = 'Nhập mã PIN để truy cập dữ liệu bảo mật';
+                $('#vault-ok').textContent = 'Mở khóa';
+                showVaultOverlay(async (pin) => {
+                    const r = await window.copas.verifyVaultPin(pin);
+                    if (r.valid) {
+                        vaultUnlocked = true;
+                        toast('🔓 Vault đã mở!', 'success');
+                        showVaultItems();
+                        return true;
+                    } else {
+                        toast('Sai mã PIN!', 'error');
+                        return false;
+                    }
+                });
+            } else {
+                // Already unlocked, show vault
+                showVaultItems();
+            }
+        });
+    }
+
+    function showVaultOverlay(onSubmit) {
+        const ov = $('#vault-overlay');
+        const pinInput = $('#vault-pin');
+        ov.style.display = 'flex';
+        pinInput.value = '';
+        setTimeout(() => pinInput.focus(), 100);
+
+        const cleanup = () => { ov.style.display = 'none'; };
+        $('#vault-cancel').onclick = cleanup;
+        pinInput.onkeydown = async (e) => {
+            if (e.key === 'Enter') { const ok = await onSubmit(pinInput.value); if (ok) cleanup(); }
+            if (e.key === 'Escape') cleanup();
+        };
+        $('#vault-ok').onclick = async () => { const ok = await onSubmit(pinInput.value); if (ok) cleanup(); };
+    }
+
+    async function showVaultItems() {
+        const res = await window.copas.getVaultItems();
+        const items = res.items || [];
+        if (items.length === 0) {
+            toast('🔒 Vault trống. Click chuột phải → "Chuyển vào Vault" để thêm mục.', 'info');
+            return;
+        }
+        // Show vault items in a dialog
+        const ov = mk('div', 'dlg-overlay');
+        let html = '<div class="dlg-box" style="max-width:420px"><div class="dlg-title">🔒 Vault (' + items.length + ' mục)</div><div class="dlg-body" style="max-height:300px;overflow-y:auto">';
+        items.forEach(item => {
+            const txt = (item.contentText || item.content || 'Hình ảnh').substring(0, 80);
+            html += `<div style="padding:8px 0;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;word-break:break-all">${esc(txt)}</span><button class="dlg-btn" data-vid="${item.id}" style="font-size:11px;padding:4px 10px">🔓 Lấy ra</button></div>`;
+        });
+        html += '</div><div class="dlg-foot"><button class="dlg-btn cancel">Đóng</button></div></div>';
+        ov.innerHTML = html;
+        dlgRoot.appendChild(ov);
+        ov.querySelector('.cancel').addEventListener('click', () => ov.remove());
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+        ov.querySelectorAll('[data-vid]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await window.copas.removeFromVault(btn.dataset.vid);
+                toast('🔓 Đã lấy khỏi Vault', 'info');
+                ov.remove();
+                await refresh();
+            });
+        });
     }
 
     init();

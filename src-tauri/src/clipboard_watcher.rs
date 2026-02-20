@@ -116,6 +116,7 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
                             pinned: false,
                             label: String::new(),
                             content: Some(text),
+                            in_vault: false,
                         };
 
                         // Add to storage
@@ -184,6 +185,7 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
                                         pinned: false,
                                         label: String::new(),
                                         content: None,
+                                        in_vault: false,
                                     };
 
                                     {

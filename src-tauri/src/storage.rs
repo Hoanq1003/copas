@@ -205,6 +205,7 @@ impl Storage {
                         pinned,
                         label,
                         content: Some(content),
+                        in_vault: false,
                     });
                 }
             }

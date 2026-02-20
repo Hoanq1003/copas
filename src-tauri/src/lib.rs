@@ -16,7 +16,7 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // Logging in debug
@@ -105,8 +105,25 @@ pub fn run() {
             commands::install_update,
             commands::get_image_url,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    // Show window on first launch so the user knows the app is running
+    if let Some(_window) = app.get_webview_window("main") {
+        // Brief delay to let the webview load
+        let handle = app.handle().clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            show_popup(&handle);
+        });
+    }
+
+    app.run(|app_handle, event| {
+        // Handle macOS dock icon click → show popup
+        if let tauri::RunEvent::Reopen { .. } = event {
+            show_popup(app_handle);
+        }
+    });
 }
 
 fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {

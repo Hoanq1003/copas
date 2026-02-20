@@ -51,9 +51,11 @@
         pasteAndHide: (content, imagePath) => invoke('paste_and_hide', { content, imagePath }),
         bulkPasteAndHide: (contents) => invoke('bulk_paste_and_hide', { contents }),
         hidePopup: () => invoke('hide_popup'),
+        showPopup: () => invoke('window_show'),
         onClipboardUpdate: (cb) => listen('clipboard-updated', (e) => cb(e.payload)),
         onHistoryCleared: (cb) => listen('history-cleared', () => cb()),
         onPopupShown: (cb) => listen('popup-shown', () => cb()),
+        onStartScreenshot: (cb) => listen('start-screenshot', () => cb()),
         checkForUpdate: () => invoke('check_for_update'),
         installUpdate: () => invoke('install_update'),
         getVersion: () => invoke('get_version'),
@@ -100,6 +102,11 @@
         bindVault();
         updateGuideShortcut();
         bindAutoUpdate();
+
+        // Listen for global screenshot shortcut
+        window.copas.onStartScreenshot(() => {
+            if (isPremium()) startScreenshot();
+        });
     }
 
     // ===== THEME =====
@@ -682,54 +689,164 @@
         if (showInstall) document.querySelector('#install-update')?.addEventListener('click', () => window.copas.installUpdate());
     }
 
-    // ===== SCREENSHOT =====
-    let cropImg = null, sx = 0, sy = 0, curX = 0, curY = 0, isDragging = false;
+    // SCROPU / SCREENSHOT
+    let cropImg = null;
+    let isDragging = false;
+    let isDrawing = false;
+    let sx = 0, sy = 0, curX = 0, curY = 0;
+
+    // Drawing sub-states
+    let currentDrawTool = 'select'; // select, rect, arrow, pen, text, blur
+    let drawColor = '#ef4444';
+    let drawLineWidth = 3;
+    let drawStrokes = [];
+
     async function startScreenshot() {
+        closeMenus();
+        await window.copas.hidePopup();
+        await new Promise(r => setTimeout(r, 350)); // let os hide animations finish
         try {
-            toast('📸 Đang chụp...', 'info');
             const b64 = await window.copas.captureScreen();
+
+            // show fullscreen overlay
+            await window.copas.showPopup();
+            await window.copas.setFullscreen(true);
+            await new Promise(r => setTimeout(r, 100)); // wait for resize
+
+            $('.titlebar').style.display = 'none';
+            $('.app-body').style.display = 'none';
+
+            const ov = $('#img-crop-overlay');
+            ov.style.display = 'block';
+
+            // reset states
+            isDragging = false;
+            isDrawing = false;
+            currentDrawTool = 'select';
+            drawStrokes = [];
+            sx = sy = curX = curY = 0;
+            document.querySelectorAll('.dt-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tool === 'select');
+            });
+            document.querySelectorAll('.dt-swatch').forEach(b => {
+                b.classList.toggle('active', b.dataset.color === '#ef4444');
+            });
+            document.querySelectorAll('.dt-width').forEach(b => {
+                b.classList.toggle('active', parseInt(b.dataset.width) === 3);
+            });
+            drawColor = '#ef4444';
+            drawLineWidth = 3;
+            const colorInput = $('#dt-color');
+            if (colorInput) colorInput.value = '#ef4444';
+
             const img = new Image();
             img.onload = async () => {
                 cropImg = img;
-                await window.copas.setFullscreen(true);
-                setTimeout(() => {
-                    $('#img-crop-overlay').style.display = 'flex';
-                    $('.titlebar').style.display = 'none';
-                    $('.app-body').style.display = 'none';
-                    const cvs = $('#crop-canvas');
-                    cvs.width = window.innerWidth;
-                    cvs.height = window.innerHeight;
-                    drawCrop();
-                }, 300);
+                const cvs = $('#crop-canvas');
+                cvs.width = window.innerWidth;
+                cvs.height = window.innerHeight;
+                drawCrop();
             };
             img.src = b64;
         } catch (e) { toast('Lỗi chụp ảnh: ' + e, 'error'); }
     }
 
     function bindScreenshot() {
-        const cvs = $('#crop-canvas');
-        const tools = $('#img-crop-tools');
-
-        cvs.addEventListener('mousedown', e => {
-            if (e.target !== cvs) return;
-            isDragging = true;
-            sx = e.clientX; sy = e.clientY; curX = sx; curY = sy;
-            tools.style.display = 'none';
-            drawCrop();
+        // Drawing tools UI
+        document.querySelectorAll('.dt-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.dt-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDrawTool = btn.dataset.tool;
+            });
         });
-        window.addEventListener('mousemove', e => {
-            if (!isDragging) return;
-            curX = e.clientX; curY = e.clientY;
-            drawCrop();
+        // Color input
+        const colorInput = $('#dt-color');
+        if (colorInput) {
+            colorInput.addEventListener('input', (e) => {
+                drawColor = e.target.value;
+                document.querySelectorAll('.dt-swatch').forEach(b => b.classList.remove('active'));
+            });
+        }
+        // Preset color swatches
+        document.querySelectorAll('.dt-swatch').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.dt-swatch').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                drawColor = btn.dataset.color;
+                if (colorInput) colorInput.value = drawColor;
+            });
+        });
+        // Stroke width buttons
+        document.querySelectorAll('.dt-width').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.dt-width').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                drawLineWidth = parseInt(btn.dataset.width) || 3;
+            });
+        });
+
+        const tools = $('#img-crop-tools');
+        const cvs = $('#crop-canvas');
+        cvs.addEventListener('mousedown', (e) => {
+            if (currentDrawTool === 'select') {
+                isDragging = true;
+                sx = e.clientX; sy = e.clientY;
+                curX = sx; curY = sy;
+                drawStrokes = [];
+                tools.style.display = 'none';
+                drawCrop();
+            } else {
+                const selX = Math.min(sx, curX), selY = Math.min(sy, curY);
+                const selW = Math.abs(curX - sx), selH = Math.abs(curY - sy);
+                if (e.clientX >= selX && e.clientX <= selX + selW && e.clientY >= selY && e.clientY <= selY + selH) {
+                    isDrawing = true;
+                    if (currentDrawTool === 'text') {
+                        isDrawing = false; // text requires prompt, no drag needed
+                        const txt = prompt('Nhập chữ (sẽ chèn tại con trỏ):');
+                        if (txt) {
+                            drawStrokes.push({ tool: 'text', color: drawColor, x: e.clientX, y: e.clientY, text: txt, lineWidth: drawLineWidth });
+                            drawCrop();
+                        }
+                    } else {
+                        drawStrokes.push({
+                            tool: currentDrawTool,
+                            color: drawColor,
+                            lineWidth: drawLineWidth,
+                            x: e.clientX, y: e.clientY,
+                            w: 0, h: 0,
+                            path: [{ x: e.clientX, y: e.clientY }]
+                        });
+                    }
+                }
+            }
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                curX = e.clientX; curY = e.clientY;
+                drawCrop();
+            } else if (isDrawing && drawStrokes.length > 0) {
+                const stroke = drawStrokes[drawStrokes.length - 1];
+                if (stroke.tool === 'pen') {
+                    stroke.path.push({ x: e.clientX, y: e.clientY });
+                } else if (stroke.tool === 'rect' || stroke.tool === 'arrow' || stroke.tool === 'blur') {
+                    stroke.w = e.clientX - stroke.x;
+                    stroke.h = e.clientY - stroke.y;
+                }
+                drawCrop();
+            }
         });
         window.addEventListener('mouseup', () => {
-            if (!isDragging) return;
-            isDragging = false;
-            if (Math.abs(curX - sx) > 10 && Math.abs(curY - sy) > 10) {
-                tools.style.display = 'flex';
-                tools.style.left = Math.min(curX, sx) + 'px';
-                tools.style.top = Math.max(curY, sy) + 5 + 'px';
-            } else { drawCrop(); }
+            if (isDragging) {
+                isDragging = false;
+                if (Math.abs(curX - sx) > 10 && Math.abs(curY - sy) > 10) {
+                    tools.style.display = 'flex';
+                    tools.style.left = Math.min(curX, sx) + 'px';
+                    tools.style.top = Math.max(curY, sy) + 8 + 'px';
+                } else { drawCrop(); }
+            } else if (isDrawing) {
+                isDrawing = false;
+            }
         });
 
         $('#ic-cancel').addEventListener('click', closeScreenshot);
@@ -739,7 +856,9 @@
             if (w < 10 || h < 10) return;
             const temp = document.createElement('canvas');
             temp.width = w; temp.height = h;
-            temp.getContext('2d').drawImage(cropImg, x, y, w, h, 0, 0, w, h);
+            const tCtx = temp.getContext('2d');
+            tCtx.drawImage(cropImg, x, y, w, h, 0, 0, w, h);
+            tCtx.save(); tCtx.translate(-x, -y); renderStrokes(tCtx, cropImg); tCtx.restore();
 
             const b64 = temp.toDataURL('image/png');
             await window.copas.copyImageToClipboard(b64);
@@ -756,7 +875,10 @@
 
             const temp = document.createElement('canvas');
             temp.width = w; temp.height = h;
-            temp.getContext('2d').drawImage(cropImg, x, y, w, h, 0, 0, w, h);
+            const tCtx = temp.getContext('2d');
+            tCtx.drawImage(cropImg, x, y, w, h, 0, 0, w, h);
+            tCtx.save(); tCtx.translate(-x, -y); renderStrokes(tCtx, cropImg); tCtx.restore();
+
             const b64 = temp.toDataURL('image/png');
 
             closeScreenshot();
@@ -789,7 +911,61 @@
                 }
             } catch (e) {
                 loading.remove();
-                toast('Lỗi OCR: ' + e.message, 'error');
+                console.error("OCR Exception:", e);
+                const msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e));
+                toast('Lỗi OCR: ' + msg, 'error');
+            }
+        });
+    }
+
+    function renderStrokes(ctx, srcImg) {
+        drawStrokes.forEach(s => {
+            ctx.strokeStyle = s.color;
+            ctx.fillStyle = s.color;
+            ctx.lineWidth = s.lineWidth || 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            if (s.tool === 'blur' && srcImg) {
+                // Pixelation blur effect
+                const bx = s.w < 0 ? s.x + s.w : s.x;
+                const by = s.h < 0 ? s.y + s.h : s.y;
+                const bw = Math.abs(s.w), bh = Math.abs(s.h);
+                if (bw > 2 && bh > 2) {
+                    const pixelSize = 8;
+                    const tw = Math.max(1, Math.ceil(bw / pixelSize));
+                    const th = Math.max(1, Math.ceil(bh / pixelSize));
+                    const tmpCvs = document.createElement('canvas');
+                    tmpCvs.width = tw; tmpCvs.height = th;
+                    const tmpCtx = tmpCvs.getContext('2d');
+                    tmpCtx.drawImage(srcImg, bx, by, bw, bh, 0, 0, tw, th);
+                    ctx.save();
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(tmpCvs, 0, 0, tw, th, bx, by, bw, bh);
+                    ctx.restore();
+                }
+            } else if (s.tool === 'pen') {
+                ctx.beginPath();
+                if (s.path.length > 0) {
+                    ctx.moveTo(s.path[0].x, s.path[0].y);
+                    for (let i = 1; i < s.path.length; i++) ctx.lineTo(s.path[i].x, s.path[i].y);
+                }
+                ctx.stroke();
+            } else if (s.tool === 'rect') {
+                ctx.strokeRect(s.x, s.y, s.w, s.h);
+            } else if (s.tool === 'arrow') {
+                const headlen = 15;
+                const angle = Math.atan2(s.h, s.w);
+                ctx.beginPath();
+                ctx.moveTo(s.x, s.y);
+                const endX = s.x + s.w, endY = s.y + s.h;
+                ctx.lineTo(endX, endY);
+                ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+                ctx.stroke();
+            } else if (s.tool === 'text') {
+                ctx.font = 'bold 24px Inter, sans-serif';
+                ctx.fillText(s.text, s.x, s.y + 20); // offset y so text isn't above cursor
             }
         });
     }
@@ -820,6 +996,14 @@
             // Draw selected area bright
             ctx.clearRect(x, y, w, h);
             ctx.drawImage(cropImg, x, y, w, h, x, y, w, h);
+
+            // Draw any annotation strokes clipped to the selected region
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.clip();
+            renderStrokes(ctx, cropImg);
+            ctx.restore();
 
             const accColor = getComputedStyle(document.body).getPropertyValue('--acc').trim() || '#16a34a';
             // Selection border with glow

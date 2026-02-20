@@ -1659,12 +1659,123 @@ mark {
   background: var(--bg-panel);
   border: 1px solid var(--bdr);
   border-radius: var(--r-m);
-  padding: 6px;
-  display: flex;
-  gap: 6px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   z-index: 10000;
   backdrop-filter: var(--glass-blur);
+}
+
+.crop-draw-tools,
+.crop-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.dt-btn {
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: all var(--trans);
+}
+
+.dt-btn:hover,
+.dt-btn.active {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.dt-color {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  margin-left: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  cursor: pointer;
+  background: none;
+}
+
+.dt-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.dt-color::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+/* Toolbar separator */
+.dt-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
+}
+
+/* Preset color swatches */
+.dt-colors {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.dt-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background: var(--sw);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.dt-swatch:hover {
+  transform: scale(1.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.dt-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+  transform: scale(1.15);
+}
+
+/* Stroke width buttons */
+.dt-widths {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.dt-width {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 4px 6px;
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+}
+
+.dt-width:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dt-width.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .ic-btn {

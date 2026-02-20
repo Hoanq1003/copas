@@ -100,6 +100,7 @@ pub fn run() {
             commands::window_minimize,
             commands::window_close,
             commands::window_quit,
+            commands::window_show,
             commands::get_version,
             commands::check_for_update,
             commands::install_update,
@@ -195,6 +196,16 @@ fn setup_global_shortcut(
             }
         }
     })?;
+
+    let scr_shortcut_str = if cfg!(target_os = "macos") { "Cmd+Shift+S" } else { "Ctrl+Shift+S" };
+    if let Ok(scr_shortcut) = parse_shortcut(scr_shortcut_str) {
+        app.global_shortcut().on_shortcut(scr_shortcut, move |app_handle, _hotkey, event| {
+            if event.state == ShortcutState::Pressed {
+                use tauri::Emitter;
+                app_handle.emit("start-screenshot", ()).ok();
+            }
+        })?;
+    }
 
     Ok(())
 }

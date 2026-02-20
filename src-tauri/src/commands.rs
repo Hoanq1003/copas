@@ -429,6 +429,14 @@ pub fn window_quit(app_handle: AppHandle) {
 }
 
 #[tauri::command]
+pub fn window_show(app_handle: AppHandle) {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.show().ok();
+        window.set_focus().ok();
+    }
+}
+
+#[tauri::command]
 pub fn window_fullscreen(app_handle: AppHandle, fullscreen: bool) {
     if let Some(window) = app_handle.get_webview_window("main") {
         window.set_fullscreen(fullscreen).ok();

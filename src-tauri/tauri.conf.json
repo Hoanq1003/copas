@@ -62,8 +62,5 @@
     "windows": {
       "allowDowngrades": true
     }
-  },
-  "plugins": {
-    "global-shortcut": {}
   }
 }

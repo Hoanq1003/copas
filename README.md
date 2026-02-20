@@ -1,22 +1,23 @@
 # 📋 CoPas — Clipboard Manager
 
-**CoPas** là ứng dụng quản lý clipboard cho **Windows** và **macOS**. Copy và dán hàng loạt, lưu trữ vĩnh viễn lịch sử clipboard.
+**CoPas** là ứng dụng quản lý clipboard cho **Windows** và **macOS**, được xây dựng bằng **Tauri v2 + Rust**. Copy và dán hàng loạt, lưu trữ vĩnh viễn lịch sử clipboard.
 
 ## ✨ Tính năng
 
-- 📋 **Tự động lưu** mọi nội dung bạn copy
+- 📋 **Tự động lưu** mọi nội dung bạn copy (văn bản + hình ảnh)
 - 🗂 **Hệ thống thẻ** — phân loại nội dung theo nhóm tùy ý
 - 🏷 **Đặt tên mục** — gắn nhãn dễ nhận biết
 - 📌 **Ghim** nội dung quan trọng
 - 🔍 **Tìm kiếm** theo từ khóa
 - ☀️🌙 **Light/Dark theme**
 - 💾 **Lưu trữ vĩnh viễn** — không mất khi tắt app
+- ⚡ **Siêu nhẹ** — sử dụng Tauri + Rust, chỉ ~3MB
 
 ## ⌨️ Phím tắt
 
 | Phím tắt | Hành động |
 |----------|-----------|
-| `Ctrl+Shift+V` | Mở / Ẩn CoPas |
+| `Ctrl+Shift+V` (hoặc `Cmd+Shift+V`) | Mở / Ẩn CoPas |
 | `Ctrl+Click` | Chọn từng mục |
 | `Ctrl+A` | Chọn tất cả |
 | `Ctrl+Shift+C` | Copy hàng loạt |
@@ -35,11 +36,8 @@
 
 ## 📦 Cài đặt
 
-### Windows
-Tải file `.exe` từ [Releases](../../releases/latest) và chạy để cài đặt.
-
-### macOS
-1. Tải file `.dmg` từ [Releases](../../releases/latest)
+### macOS (Apple Silicon)
+1. Tải file `.dmg` từ [**Releases**](https://github.com/Hoanq1003/copas/releases/latest)
 2. Mở và kéo CoPas vào Applications
 3. **Nếu báo "is damaged"**, mở Terminal và chạy:
 ```bash
@@ -49,8 +47,8 @@ xattr -cr /Applications/CoPas.app
 
 > ⚠️ Lỗi "damaged" xảy ra vì app chưa có chứng chỉ Apple Developer. Lệnh trên xóa đánh dấu "quarantine" từ macOS.
 
-### 🔄 Tự động cập nhật
-Khi có bản mới trên GitHub Releases, CoPas sẽ tự tải về và hiện nút "Cập nhật ngay".
+### Windows
+> 🔜 Sắp có — đang phát triển bản Windows.
 
 ## 🛠 Build từ source
 
@@ -63,12 +61,16 @@ cd copas
 npm install
 
 # Chạy dev
-npm start
+npm run tauri dev
 
 # Build installer
-npm run build:win   # Windows (.exe)
-npm run build:mac   # macOS (.dmg)
+npm run tauri build
 ```
+
+### Yêu cầu hệ thống để build
+- [Rust](https://rustup.rs/) (stable)
+- [Node.js](https://nodejs.org/) >= 18
+- Tauri CLI: `npm install -g @tauri-apps/cli`
 
 ## 📝 License
 

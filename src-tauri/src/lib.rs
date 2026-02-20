@@ -4,12 +4,10 @@ mod models;
 mod paste;
 mod storage;
 
-use commands::StorageState;
 use log::info;
 use std::sync::Arc;
 use storage::Storage;
 use tauri::{
-    image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
     Manager, Emitter, WindowEvent,

@@ -1,4 +1,4 @@
-use crate::models::{HistoryResult, Item, ItemKind, Stats};
+use crate::models::{HistoryResult, Item, Stats};
 use crate::paste;
 use crate::storage::Storage;
 use arboard::Clipboard;
@@ -201,7 +201,7 @@ pub fn label_item(
 }
 
 #[tauri::command]
-pub fn copy_to_clipboard(storage: State<StorageState>, content: String) -> serde_json::Value {
+pub fn copy_to_clipboard(_storage: State<StorageState>, content: String) -> serde_json::Value {
     match Clipboard::new() {
         Ok(mut clipboard) => {
             if let Err(e) = clipboard.set_text(&content) {

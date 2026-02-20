@@ -1,5 +1,5 @@
 use arboard::Clipboard;
-use log::{error, info, warn};
+use log::{error, warn};
 use std::path::Path;
 use std::thread;
 use std::time::Duration;

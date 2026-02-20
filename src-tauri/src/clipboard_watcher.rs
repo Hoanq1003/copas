@@ -7,7 +7,6 @@ use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
-use tokio::time;
 
 /// Detect content category heuristic
 pub fn detect_category(text: &str) -> &'static str {

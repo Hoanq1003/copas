@@ -96,7 +96,7 @@ impl Storage {
     }
 
     /// Try to find and migrate data from former Electron app
-    fn try_migrate_from_electron(app_data_dir: &Path) -> Option<AppData> {
+    fn try_migrate_from_electron(_app_data_dir: &Path) -> Option<AppData> {
         let electron_paths = Self::get_electron_data_paths();
 
         for path in electron_paths {

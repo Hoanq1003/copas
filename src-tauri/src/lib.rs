@@ -273,20 +273,8 @@ fn parse_shortcut(s: &str) -> Result<Shortcut, Box<dyn std::error::Error>> {
 
 fn show_popup(app_handle: &tauri::AppHandle) {
     if let Some(window) = app_handle.get_webview_window("main") {
-        // Center on screen
-        if let Ok(monitor) = window.current_monitor() {
-            if let Some(monitor) = monitor {
-                let screen_size = monitor.size();
-                let screen_pos = monitor.position();
-                let ww: u32 = 460;
-                let wh: u32 = 560;
-                let x = screen_pos.x + (screen_size.width as i32 - ww as i32) / 2;
-                let y = screen_pos.y + (screen_size.height as i32 - wh as i32) / 2 - 40;
-
-                use tauri::LogicalPosition;
-                window.set_position(LogicalPosition::new(x as f64, y as f64)).ok();
-            }
-        }
+        // Use center() which correctly handles DPI/scale factor on Retina displays
+        window.center().ok();
 
         window.show().ok();
         window.set_focus().ok();

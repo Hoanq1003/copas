@@ -502,13 +502,17 @@
     // ===== SETTINGS =====
     function populateSettings() {
         $('#set-toggle').value = settings.shortcutToggle || '';
+        const scrEl = $('#set-screenshot');
+        if (scrEl) scrEl.value = settings.shortcutScreenshot || '';
         $('#set-max').value = settings.maxHistory || 1000;
         $('#set-delim').value = settings.pasteDelimiter || '\\n';
         $$('.th-opt').forEach(b => b.classList.toggle('active', b.dataset.theme === settings.theme));
     }
     async function saveSettings() {
+        const scrEl = $('#set-screenshot');
         const ns = {
             shortcutToggle: $('#set-toggle').value || settings.shortcutToggle,
+            shortcutScreenshot: scrEl ? (scrEl.value || settings.shortcutScreenshot || '') : (settings.shortcutScreenshot || ''),
             maxHistory: parseInt($('#set-max').value) || 1000,
             pasteDelimiter: $('#set-delim').value,
             theme: document.querySelector('.th-opt.active')?.dataset.theme || settings.theme
@@ -689,11 +693,12 @@
         if (showInstall) document.querySelector('#install-update')?.addEventListener('click', () => window.copas.installUpdate());
     }
 
-    // SCROPU / SCREENSHOT
+    // SCREENSHOT
     let cropImg = null;
     let isDragging = false;
     let isDrawing = false;
     let sx = 0, sy = 0, curX = 0, curY = 0;
+    let imgScaleX = 1, imgScaleY = 1; // native pixels / CSS pixels
 
     // Drawing sub-states
     let currentDrawTool = 'select'; // select, rect, arrow, pen, text, blur
@@ -745,6 +750,9 @@
                 const cvs = $('#crop-canvas');
                 cvs.width = window.innerWidth;
                 cvs.height = window.innerHeight;
+                // Scale factor: native image res vs CSS canvas size
+                imgScaleX = img.naturalWidth / cvs.width;
+                imgScaleY = img.naturalHeight / cvs.height;
                 drawCrop();
             };
             img.src = b64;
@@ -854,11 +862,15 @@
             const x = Math.min(sx, curX), y = Math.min(sy, curY);
             const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
             if (w < 10 || h < 10) return;
+            // Output at native resolution
+            const nw = Math.round(w * imgScaleX), nh = Math.round(h * imgScaleY);
+            const nx = Math.round(x * imgScaleX), ny = Math.round(y * imgScaleY);
             const temp = document.createElement('canvas');
-            temp.width = w; temp.height = h;
+            temp.width = nw; temp.height = nh;
             const tCtx = temp.getContext('2d');
-            tCtx.drawImage(cropImg, x, y, w, h, 0, 0, w, h);
-            tCtx.save(); tCtx.translate(-x, -y); renderStrokes(tCtx, cropImg); tCtx.restore();
+            tCtx.drawImage(cropImg, nx, ny, nw, nh, 0, 0, nw, nh);
+            // Scale strokes to native res
+            tCtx.save(); tCtx.scale(imgScaleX, imgScaleY); tCtx.translate(-x, -y); renderStrokes(tCtx, cropImg); tCtx.restore();
 
             const b64 = temp.toDataURL('image/png');
             await window.copas.copyImageToClipboard(b64);
@@ -873,11 +885,13 @@
             const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
             if (w < 10 || h < 10) { toast('Vui lòng chọn vùng cần quét', 'warning'); return; }
 
+            const nw = Math.round(w * imgScaleX), nh = Math.round(h * imgScaleY);
+            const nx = Math.round(x * imgScaleX), ny = Math.round(y * imgScaleY);
             const temp = document.createElement('canvas');
-            temp.width = w; temp.height = h;
+            temp.width = nw; temp.height = nh;
             const tCtx = temp.getContext('2d');
-            tCtx.drawImage(cropImg, x, y, w, h, 0, 0, w, h);
-            tCtx.save(); tCtx.translate(-x, -y); renderStrokes(tCtx, cropImg); tCtx.restore();
+            tCtx.drawImage(cropImg, nx, ny, nw, nh, 0, 0, nw, nh);
+            tCtx.save(); tCtx.scale(imgScaleX, imgScaleY); tCtx.translate(-x, -y); renderStrokes(tCtx, cropImg); tCtx.restore();
 
             const b64 = temp.toDataURL('image/png');
 
@@ -993,9 +1007,9 @@
         if (sx !== curX && sy !== curY) {
             const x = Math.min(sx, curX), y = Math.min(sy, curY);
             const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
-            // Draw selected area bright
+            // Draw selected area bright (use scaled source coords)
             ctx.clearRect(x, y, w, h);
-            ctx.drawImage(cropImg, x, y, w, h, x, y, w, h);
+            ctx.drawImage(cropImg, x * imgScaleX, y * imgScaleY, w * imgScaleX, h * imgScaleY, x, y, w, h);
 
             // Draw any annotation strokes clipped to the selected region
             ctx.save();
@@ -1021,8 +1035,8 @@
                 ctx.fillRect(cx - hs, cy - hs, hs * 2, hs * 2);
             });
 
-            // Size label
-            const label = `${w} × ${h} px`;
+            // Size label — show actual pixel dimensions
+            const label = `${Math.round(w * imgScaleX)} × ${Math.round(h * imgScaleY)} px`;
             ctx.font = '600 12px Inter, sans-serif';
             ctx.fillStyle = 'rgba(14, 165, 233, 0.9)';
             const tw = ctx.measureText(label).width;

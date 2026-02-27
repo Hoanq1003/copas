@@ -1656,14 +1656,14 @@ mark {
 
 .img-crop-tools {
   position: absolute;
-  background: var(--bg-panel);
-  border: 1px solid var(--bdr);
+  background: rgba(15, 15, 15, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--r-m);
   flex-direction: column;
   gap: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  padding: 10px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
   z-index: 10000;
-  backdrop-filter: var(--glass-blur);
 }
 
 .crop-draw-tools,
@@ -1779,10 +1779,10 @@ mark {
 }
 
 .ic-btn {
-  padding: 6px 14px;
+  padding: 8px 16px;
   border: none;
-  background: var(--bg-btn);
-  color: var(--c1);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
   border-radius: var(--r-s);
   font-weight: 600;
   cursor: pointer;
@@ -1792,17 +1792,17 @@ mark {
 }
 
 .ic-btn:hover {
-  background: var(--bg-btn-h);
+  background: rgba(255, 255, 255, 0.22);
   transform: translateY(-1px);
 }
 
 .ic-btn.danger {
-  color: var(--danger);
-  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.15);
 }
 
 .ic-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.3);
 }
 
 /* ================================================ */
@@ -1821,11 +1821,19 @@ mark {
 
 .os-mac .titlebar {
   height: 38px;
-  padding: 0 16px;
+  padding: 0 16px 0 40px;
+  position: relative;
 }
 
 .os-mac .app-body {
   height: calc(100% - 38px);
+}
+
+.os-mac html,
+.os-mac,
+.os-mac body {
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .os-mac .tb-btn {
@@ -1839,12 +1847,17 @@ mark {
   height: 14px;
   border-radius: 50%;
   background: var(--danger);
-  position: relative;
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .os-mac .tb-btn.close svg {
   opacity: 0;
   transition: opacity var(--trans);
+  width: 8px;
+  height: 8px;
 }
 
 .os-mac .tb-btn.close:hover svg {
@@ -1852,7 +1865,11 @@ mark {
 }
 
 .os-mac .tb-btn.close:hover {
-  transform: none;
+  transform: translateY(-50%);
+}
+
+.os-mac .tb-sep {
+  display: none;
 }
 
 .os-mac .sidebar {
@@ -1966,6 +1983,55 @@ mark {
 
 .os-win .ic-btn {
   border-radius: var(--r-s);
+}
+
+/* == RESPONSIVE == */
+@media (max-width: 520px) {
+  .sidebar {
+    width: 50px;
+    min-width: 50px;
+  }
+
+  .sb-title,
+  .tn,
+  .sb-stats span,
+  .vault-btn span {
+    display: none;
+  }
+
+  .sb-head {
+    padding: 10px 8px 6px;
+    justify-content: center;
+  }
+
+  .tab-item {
+    padding: 8px;
+    justify-content: center;
+  }
+
+  .ti {
+    font-size: 18px;
+  }
+
+  .tc {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 8px;
+    padding: 0 4px;
+    min-width: auto;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .sidebar {
+    display: none;
+  }
 }
 
 /* == VAULT SIDEBAR BUTTON == */

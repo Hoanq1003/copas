@@ -501,6 +501,21 @@ pub fn capture_screen() -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+pub fn save_screenshot_to_file(base64_data: String, file_path: String) -> Result<String, String> {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+
+    let b64 = if let Some(stripped) = base64_data.strip_prefix("data:image/png;base64,") {
+        stripped
+    } else {
+        &base64_data
+    };
+
+    let bytes = STANDARD.decode(b64).map_err(|e| format!("Base64 decode error: {}", e))?;
+    std::fs::write(&file_path, &bytes).map_err(|e| format!("File write error: {}", e))?;
+    Ok(file_path)
+}
+
 // ============ VAULT ============
 
 /// Simple hash for vault PIN (not crypto-grade, but sufficient for local app lock)

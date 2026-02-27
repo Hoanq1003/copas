@@ -63,6 +63,7 @@
         captureScreen: () => invoke('capture_screen'),
         setFullscreen: (f) => invoke('window_fullscreen', { fullscreen: f }),
         copyImageToClipboard: (b64) => invoke('copy_image_to_clipboard', { base64: b64 }),
+        saveScreenshotToFile: (b64, filePath) => invoke('save_screenshot_to_file', { base64Data: b64, filePath }),
         setVaultPin: (pin) => invoke('set_vault_pin', { pin }),
         verifyVaultPin: (pin) => invoke('verify_vault_pin', { pin }),
         hasVaultPin: () => invoke('has_vault_pin'),
@@ -701,10 +702,12 @@
     let imgScaleX = 1, imgScaleY = 1; // native pixels / CSS pixels
 
     // Drawing sub-states
-    let currentDrawTool = 'select'; // select, rect, arrow, pen, text, blur
+    let currentDrawTool = 'select'; // select, rect, circle, line, arrow, pen, text, number, highlight, blur
     let drawColor = '#ef4444';
     let drawLineWidth = 3;
     let drawStrokes = [];
+    let undoneStrokes = [];
+    let numberCounter = 1;
 
     async function startScreenshot() {
         closeMenus();
@@ -741,6 +744,8 @@
             });
             drawColor = '#ef4444';
             drawLineWidth = 3;
+            undoneStrokes = [];
+            numberCounter = 1;
             const colorInput = $('#dt-color');
             if (colorInput) colorInput.value = '#ef4444';
 
@@ -810,12 +815,19 @@
                 if (e.clientX >= selX && e.clientX <= selX + selW && e.clientY >= selY && e.clientY <= selY + selH) {
                     isDrawing = true;
                     if (currentDrawTool === 'text') {
-                        isDrawing = false; // text requires prompt, no drag needed
+                        isDrawing = false;
                         const txt = prompt('Nhập chữ (sẽ chèn tại con trỏ):');
                         if (txt) {
                             drawStrokes.push({ tool: 'text', color: drawColor, x: e.clientX, y: e.clientY, text: txt, lineWidth: drawLineWidth });
+                            undoneStrokes = [];
                             drawCrop();
                         }
+                    } else if (currentDrawTool === 'number') {
+                        isDrawing = false;
+                        drawStrokes.push({ tool: 'number', color: drawColor, x: e.clientX, y: e.clientY, num: numberCounter, lineWidth: drawLineWidth });
+                        numberCounter++;
+                        undoneStrokes = [];
+                        drawCrop();
                     } else {
                         drawStrokes.push({
                             tool: currentDrawTool,
@@ -825,6 +837,7 @@
                             w: 0, h: 0,
                             path: [{ x: e.clientX, y: e.clientY }]
                         });
+                        undoneStrokes = [];
                     }
                 }
             }
@@ -837,7 +850,7 @@
                 const stroke = drawStrokes[drawStrokes.length - 1];
                 if (stroke.tool === 'pen') {
                     stroke.path.push({ x: e.clientX, y: e.clientY });
-                } else if (stroke.tool === 'rect' || stroke.tool === 'arrow' || stroke.tool === 'blur') {
+                } else if (stroke.tool === 'rect' || stroke.tool === 'arrow' || stroke.tool === 'blur' || stroke.tool === 'circle' || stroke.tool === 'line' || stroke.tool === 'highlight') {
                     stroke.w = e.clientX - stroke.x;
                     stroke.h = e.clientY - stroke.y;
                 }
@@ -858,6 +871,34 @@
         });
 
         $('#ic-cancel').addEventListener('click', closeScreenshot);
+
+        // Undo button
+        $('#dt-undo').addEventListener('click', undoStroke);
+
+        // Keyboard shortcuts for undo/redo
+        document.addEventListener('keydown', (e) => {
+            if (!cropImg) return; // only in screenshot mode
+            if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault(); undoStroke();
+            } else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+                e.preventDefault(); redoStroke();
+            }
+        });
+
+        function undoStroke() {
+            if (drawStrokes.length === 0) return;
+            const s = drawStrokes.pop();
+            if (s.tool === 'number') numberCounter = Math.max(1, numberCounter - 1);
+            undoneStrokes.push(s);
+            drawCrop();
+        }
+        function redoStroke() {
+            if (undoneStrokes.length === 0) return;
+            const s = undoneStrokes.pop();
+            if (s.tool === 'number') numberCounter++;
+            drawStrokes.push(s);
+            drawCrop();
+        }
         $('#ic-save').addEventListener('click', async () => {
             const x = Math.min(sx, curX), y = Math.min(sy, curY);
             const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
@@ -877,6 +918,37 @@
             toast('Đã copy ảnh!', 'success');
             closeScreenshot();
             setTimeout(() => window.copas.hidePopup(), 500);
+        });
+
+        // Save to file
+        $('#ic-savefile').addEventListener('click', async () => {
+            const x = Math.min(sx, curX), y = Math.min(sy, curY);
+            const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
+            if (w < 10 || h < 10) return;
+            const nw = Math.round(w * imgScaleX), nh = Math.round(h * imgScaleY);
+            const nx = Math.round(x * imgScaleX), ny = Math.round(y * imgScaleY);
+            const temp = document.createElement('canvas');
+            temp.width = nw; temp.height = nh;
+            const tCtx = temp.getContext('2d');
+            tCtx.drawImage(cropImg, nx, ny, nw, nh, 0, 0, nw, nh);
+            tCtx.save(); tCtx.scale(imgScaleX, imgScaleY); tCtx.translate(-x, -y); renderStrokes(tCtx, cropImg); tCtx.restore();
+            const b64 = temp.toDataURL('image/png');
+
+            // Generate filename with timestamp
+            const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const filename = `CoPas_${ts}.png`;
+
+            // Use Downloads dir or Desktop as default path
+            const home = await window.__TAURI__.path.homeDir();
+            const defaultPath = home + (isMac ? 'Desktop/' : 'Desktop\\') + filename;
+
+            try {
+                const result = await window.copas.saveScreenshotToFile(b64, defaultPath);
+                toast('💾 Đã lưu: ' + filename, 'success');
+            } catch (e) {
+                toast('Lỗi lưu file: ' + e, 'error');
+            }
+            closeScreenshot();
         });
         $('#ic-copy').addEventListener('click', async () => {
             if (!requirePremium('Trích xuất OCR')) return;
@@ -957,6 +1029,19 @@
                     ctx.drawImage(tmpCvs, 0, 0, tw, th, bx, by, bw, bh);
                     ctx.restore();
                 }
+            } else if (s.tool === 'circle') {
+                const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+                const rx = Math.abs(s.w / 2), ry = Math.abs(s.h / 2);
+                if (rx > 0 && ry > 0) {
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            } else if (s.tool === 'line') {
+                ctx.beginPath();
+                ctx.moveTo(s.x, s.y);
+                ctx.lineTo(s.x + s.w, s.y + s.h);
+                ctx.stroke();
             } else if (s.tool === 'pen') {
                 ctx.beginPath();
                 if (s.path.length > 0) {
@@ -979,7 +1064,25 @@
                 ctx.stroke();
             } else if (s.tool === 'text') {
                 ctx.font = 'bold 24px Inter, sans-serif';
-                ctx.fillText(s.text, s.x, s.y + 20); // offset y so text isn't above cursor
+                ctx.fillText(s.text, s.x, s.y + 20);
+            } else if (s.tool === 'number') {
+                const r = 16;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+                ctx.fillStyle = s.color;
+                ctx.fill();
+                ctx.font = 'bold 14px Inter, sans-serif';
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(s.num), s.x, s.y);
+                ctx.textAlign = 'start';
+                ctx.textBaseline = 'alphabetic';
+            } else if (s.tool === 'highlight') {
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = s.color || '#facc15';
+                ctx.fillRect(s.x, s.y, s.w, s.h);
+                ctx.globalAlpha = 1;
             }
         });
     }

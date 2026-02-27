@@ -108,6 +108,7 @@ pub fn run() {
             commands::capture_screen,
             commands::copy_image_to_clipboard,
             commands::window_fullscreen,
+            commands::save_screenshot_to_file,
             commands::set_vault_pin,
             commands::verify_vault_pin,
             commands::has_vault_pin,

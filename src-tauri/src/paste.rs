@@ -24,7 +24,7 @@ pub fn paste_text_and_simulate(text: &str) {
     drop(clipboard);
 
     // Short delay before simulating paste
-    thread::sleep(Duration::from_millis(120));
+    thread::sleep(Duration::from_millis(250));
 
     simulate_paste_keystroke();
 }
@@ -63,7 +63,7 @@ pub fn paste_image_and_simulate(image_path: &Path) {
     }
 
     drop(clipboard);
-    thread::sleep(Duration::from_millis(120));
+    thread::sleep(Duration::from_millis(250));
     simulate_paste_keystroke();
 }
 
@@ -74,17 +74,18 @@ fn simulate_paste_keystroke() {
         // Use osascript on macOS - more reliable than enigo for accessibility
         let result = std::process::Command::new("osascript")
             .arg("-e")
-            .arg("delay 0.15")
+            .arg("delay 0.3")
             .arg("-e")
             .arg("tell application \"System Events\" to keystroke \"v\" using command down")
-            .spawn();
+            .output();
 
         match result {
-            Ok(mut child) => {
-                // Don't wait for completion
-                thread::spawn(move || {
-                    child.wait().ok();
-                });
+            Ok(output) => {
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    warn!("osascript paste returned error: {}", stderr);
+                    simulate_paste_enigo();
+                }
             }
             Err(e) => {
                 warn!("osascript paste failed, trying enigo: {}", e);

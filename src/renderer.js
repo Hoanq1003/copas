@@ -894,8 +894,19 @@
                 isDragging = false;
                 if (Math.abs(curX - sx) > 10 && Math.abs(curY - sy) > 10) {
                     tools.style.display = 'flex';
-                    tools.style.left = Math.min(curX, sx) + 'px';
-                    tools.style.top = Math.max(curY, sy) + 8 + 'px';
+                    const toolLeft = Math.min(curX, sx);
+                    let toolTop = Math.max(curY, sy) + 8;
+                    // Clamp: if toolbar goes below viewport, place it above selection
+                    const toolHeight = tools.offsetHeight || 120;
+                    if (toolTop + toolHeight > window.innerHeight) {
+                        toolTop = Math.min(sy, curY) - toolHeight - 8;
+                        if (toolTop < 0) toolTop = 8; // fallback: top of screen
+                    }
+                    // Clamp horizontal
+                    const toolWidth = tools.offsetWidth || 300;
+                    const clampedLeft = Math.min(toolLeft, window.innerWidth - toolWidth - 8);
+                    tools.style.left = Math.max(8, clampedLeft) + 'px';
+                    tools.style.top = toolTop + 'px';
                 } else { drawCrop(); }
             } else if (isDrawing) {
                 isDrawing = false;

@@ -25,11 +25,11 @@
         "focus": true,
         "shadow": true,
         "maximizable": false,
-        "transparent": false
+        "transparent": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' asset: http://asset.localhost blob: data:; script-src 'self' 'unsafe-eval' https://unpkg.com blob:; worker-src 'self' blob:; connect-src 'self' https://unpkg.com https://tessdata.projectnaptha.com",
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' asset: http://asset.localhost blob: data:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net blob:; worker-src 'self' blob: https://unpkg.com https://cdn.jsdelivr.net; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com blob: data:",
       "assetProtocol": {
         "enable": true,
         "scope": [

@@ -486,19 +486,50 @@ pub fn capture_screen() -> Result<String, String> {
     use std::io::Cursor;
 
     let monitors = Monitor::all().map_err(|e| e.to_string())?;
-    // For simplicity, capture the primary monitor or the first one
-    if let Some(monitor) = monitors.first() {
-        let image = monitor.capture_image().map_err(|e| e.to_string())?;
-        
-        let mut buffer = Cursor::new(Vec::new());
-        image.write_to(&mut buffer, image::ImageFormat::Png)
-            .map_err(|e| e.to_string())?;
-            
-        let base64_str = STANDARD.encode(buffer.into_inner());
-        Ok(format!("data:image/png;base64,{}", base64_str))
-    } else {
-        Err("No monitor found".to_string())
+    if monitors.is_empty() {
+        return Err("No monitor found".to_string());
     }
+
+    // Try to find the monitor at cursor position (the active one)
+    let monitor = {
+        #[cfg(target_os = "macos")]
+        {
+            // On macOS, use CoreGraphics to get cursor position
+            use std::process::Command as StdCommand;
+            let output = StdCommand::new("osascript")
+                .arg("-e")
+                .arg("tell application \"System Events\" to get position of the mouse cursor")
+                .output();
+            
+            if let Ok(out) = output {
+                let pos_str = String::from_utf8_lossy(&out.stdout);
+                // Parse "x, y" format
+                let parts: Vec<&str> = pos_str.trim().split(',').collect();
+                if parts.len() == 2 {
+                    if let (Ok(mx), Ok(my)) = (parts[0].trim().parse::<i32>(), parts[1].trim().parse::<i32>()) {
+                        monitors.iter().find(|m| {
+                            let x = m.x().unwrap_or(0);
+                            let y = m.y().unwrap_or(0);
+                            let w = m.width().unwrap_or(0) as i32;
+                            let h = m.height().unwrap_or(0) as i32;
+                            mx >= x && mx < x + w && my >= y && my < y + h
+                        }).unwrap_or(&monitors[0])
+                    } else { &monitors[0] }
+                } else { &monitors[0] }
+            } else { &monitors[0] }
+        }
+        #[cfg(not(target_os = "macos"))]
+        { &monitors[0] }
+    };
+
+    let image = monitor.capture_image().map_err(|e| e.to_string())?;
+    
+    let mut buffer = Cursor::new(Vec::new());
+    image.write_to(&mut buffer, image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+        
+    let base64_str = STANDARD.encode(buffer.into_inner());
+    Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
 #[tauri::command]

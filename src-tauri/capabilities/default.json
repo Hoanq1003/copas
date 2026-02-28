@@ -26,6 +26,7 @@
     "core:app:default",
     "core:resources:default",
     "core:tray:default",
-    "core:image:default"
+    "core:image:default",
+    "updater:default"
   ]
 }

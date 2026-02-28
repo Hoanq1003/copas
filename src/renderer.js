@@ -678,20 +678,52 @@
     // ===== AUTO UPDATE =====
     async function bindAutoUpdate() {
         try { const ver = await window.copas.getVersion(); const el = $('.sb-stats'); if (el && ver) el.innerHTML += ` · v${ver}`; } catch { }
-        window.copas.onUpdateStatus((data) => {
-            document.querySelector('.update-banner')?.remove();
-            if (data.status === 'available') showUpdateBanner(`⬇️ Đang tải v${data.version}...`, false);
-            if (data.status === 'downloading') showUpdateBanner(`⬇️ ${data.percent}%`, false);
-            if (data.status === 'ready') showUpdateBanner(`✅ v${data.version} sẵn sàng!`, true);
-        });
+
+        // Check for updates using Tauri updater plugin
+        try {
+            const { check } = window.__TAURI__.updater;
+            const update = await check();
+            if (update) {
+                showUpdateBanner(`🆕 Phiên bản v${update.version} đã có!`, true, update);
+            }
+        } catch (e) {
+            console.log('Auto-update check skipped:', e?.message || e);
+        }
     }
-    function showUpdateBanner(msg, showInstall) {
+    function showUpdateBanner(msg, showInstall, update) {
         document.querySelector('.update-banner')?.remove();
         const banner = mk('div', 'update-banner');
         banner.innerHTML = `<span>${msg}</span>${showInstall ? '<button class="update-btn" id="install-update">🔄 Cập nhật</button>' : ''}`;
         const content = document.querySelector('.content');
         content.insertBefore(banner, content.firstChild);
-        if (showInstall) document.querySelector('#install-update')?.addEventListener('click', () => window.copas.installUpdate());
+        if (showInstall && update) {
+            document.querySelector('#install-update')?.addEventListener('click', async () => {
+                const btn = document.querySelector('#install-update');
+                if (btn) btn.textContent = '⬇️ Đang tải...';
+                try {
+                    let downloaded = 0, total = 0;
+                    await update.downloadAndInstall((event) => {
+                        if (event.event === 'Started' && event.data?.contentLength) {
+                            total = event.data.contentLength;
+                        } else if (event.event === 'Progress' && event.data?.chunkLength) {
+                            downloaded += event.data.chunkLength;
+                            if (total > 0 && btn) {
+                                const pct = Math.round((downloaded / total) * 100);
+                                btn.textContent = `⬇️ ${pct}%`;
+                            }
+                        } else if (event.event === 'Finished') {
+                            if (btn) btn.textContent = '✅ Khởi động lại...';
+                        }
+                    });
+                    // Relaunch after install
+                    const { relaunch } = window.__TAURI__.process;
+                    await relaunch();
+                } catch (e) {
+                    toast('Lỗi cập nhật: ' + (e?.message || e), 'error');
+                    if (btn) btn.textContent = '🔄 Cập nhật';
+                }
+            });
+        }
     }
 
     // SCREENSHOT

@@ -44,6 +44,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'CoPas ${{ github.ref_name }}'
@@ -62,6 +64,10 @@ jobs:
                xattr -cr /Applications/CoPas.app
                ```
             3. Mở lại CoPas bình thường
+
+            ### Cập nhật
+            - Ứng dụng sẽ tự động kiểm tra và thông báo khi có phiên bản mới
+            - Nhấn "🔄 Cập nhật" để tải và cài đặt ngay
 
             ### Sử dụng
             - **Cmd+Shift+V** (Mac) hoặc **Ctrl+Shift+V** (Windows) để mở popup

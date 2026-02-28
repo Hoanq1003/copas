@@ -19,46 +19,46 @@
   --trans-slow: 350ms cubic-bezier(.4, 0, .2, 1)
 }
 
-/* === LIGHT === Green Fresh 🌿 */
+/* === LIGHT === Emerald Premium 💎 */
 .theme-light {
-  --bg-app: #f0fdf4;
-  --bg-side: rgba(255, 255, 255, 0.88);
-  --bg-main: #f0fdf4;
-  --bg-card: rgba(255, 255, 255, 0.78);
-  --bg-card-h: linear-gradient(135deg, rgba(220, 252, 231, 0.9) 0%, rgba(187, 247, 208, 0.7) 100%);
-  --bg-bar: rgba(255, 255, 255, 0.82);
-  --bg-input: rgba(34, 197, 94, 0.06);
+  --bg-app: #f8fffe;
+  --bg-side: rgba(255, 255, 255, 0.92);
+  --bg-main: #f8fffe;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-h: linear-gradient(135deg, rgba(209, 250, 229, 0.9) 0%, rgba(167, 243, 208, 0.6) 100%);
+  --bg-bar: rgba(255, 255, 255, 0.88);
+  --bg-input: rgba(16, 185, 129, 0.05);
   --bg-input-f: #fff;
-  --bg-chip: rgba(34, 197, 94, 0.08);
-  --bg-btn: rgba(34, 197, 94, 0.06);
-  --bg-btn-h: rgba(34, 197, 94, 0.14);
-  --bg-panel: rgba(255, 255, 255, 0.94);
-  --c1: #052e16;
-  --c2: #166534;
-  --c3: #6b9a7d;
-  --c4: #a3c4b0;
-  --acc: #16a34a;
-  --acc-l: #22c55e;
-  --acc-bg: rgba(34, 197, 94, .08);
-  --acc-bg2: rgba(34, 197, 94, .16);
-  --bdr: rgba(34, 197, 94, 0.14);
-  --bdr-acc: rgba(34, 197, 94, .30);
+  --bg-chip: rgba(16, 185, 129, 0.08);
+  --bg-btn: rgba(16, 185, 129, 0.06);
+  --bg-btn-h: rgba(16, 185, 129, 0.12);
+  --bg-panel: rgba(255, 255, 255, 0.96);
+  --c1: #064e3b;
+  --c2: #047857;
+  --c3: #6b8f7d;
+  --c4: #94a3b8;
+  --acc: #059669;
+  --acc-l: #10b981;
+  --acc-bg: rgba(16, 185, 129, .08);
+  --acc-bg2: rgba(16, 185, 129, .14);
+  --bdr: rgba(16, 185, 129, 0.12);
+  --bdr-acc: rgba(16, 185, 129, .25);
   --danger: #ef4444;
   --success: #10b981;
   --warn: #f59e0b;
-  --sh-card: 0 1px 3px rgba(34, 197, 94, .06), 0 4px 12px rgba(34, 197, 94, .04);
-  --sh-hover: 0 8px 24px rgba(34, 197, 94, .15);
-  --sh-panel: -4px 0 24px rgba(34, 197, 94, .10);
-  --cat-link: #16a34a;
-  --cat-email: #ec4899;
-  --cat-code: #0ea5e9;
-  --cat-phone: #f59e0b;
-  --cat-number: #f97316;
+  --sh-card: 0 1px 3px rgba(0, 0, 0, .04), 0 4px 16px rgba(16, 185, 129, .06);
+  --sh-hover: 0 8px 30px rgba(16, 185, 129, .12), 0 0 0 1px rgba(16, 185, 129, .08);
+  --sh-panel: -4px 0 24px rgba(0, 0, 0, .06);
+  --cat-link: #059669;
+  --cat-email: #db2777;
+  --cat-code: #0284c7;
+  --cat-phone: #d97706;
+  --cat-number: #ea580c;
   --cat-text: #64748b;
-  --glass-blur: blur(12px);
-  --mesh-bg: radial-gradient(ellipse at 20% 50%, rgba(34, 197, 94, .06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(74, 222, 128, .05) 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 80%, rgba(22, 163, 74, .04) 0%, transparent 50%);
+  --glass-blur: blur(14px);
+  --mesh-bg: radial-gradient(ellipse at 15% 50%, rgba(16, 185, 129, .05) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 20%, rgba(52, 211, 153, .04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 85%, rgba(6, 95, 70, .03) 0%, transparent 50%);
 }
 
 /* === DARK === Yellow Gold ✨ */
@@ -341,8 +341,22 @@ body::before {
 }
 
 .ti {
-  font-size: 16px;
-  flex-shrink: 0
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-xs);
+  background: var(--acc-bg);
+  transition: all var(--trans)
+}
+
+.tab-item.active .ti {
+  background: linear-gradient(135deg, var(--acc), var(--acc-l));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, .25);
 }
 
 .tn {
@@ -1839,15 +1853,26 @@ mark {
   font-size: 120px;
   font-weight: 900;
   color: #fff;
-  text-shadow: 0 0 40px rgba(255,255,255,0.5);
+  text-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
   animation: countPulse 1s ease-in-out infinite;
   font-family: var(--font);
 }
 
 @keyframes countPulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.3); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.3);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* ================================================ */

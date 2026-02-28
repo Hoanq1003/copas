@@ -24,7 +24,7 @@ pub fn paste_text_and_simulate(text: &str) {
     drop(clipboard);
 
     // Wait for the target app to regain focus after CoPas hides
-    thread::sleep(Duration::from_millis(350));
+    thread::sleep(Duration::from_millis(400));
 
     simulate_paste_keystroke();
 }
@@ -63,7 +63,7 @@ pub fn paste_image_and_simulate(image_path: &Path) {
     }
 
     drop(clipboard);
-    thread::sleep(Duration::from_millis(350));
+    thread::sleep(Duration::from_millis(400));
     simulate_paste_keystroke();
 }
 
@@ -71,11 +71,12 @@ pub fn paste_image_and_simulate(image_path: &Path) {
 fn simulate_paste_keystroke() {
     #[cfg(target_os = "macos")]
     {
-        // Strategy 1: osascript (requires Accessibility permission)
-        info!("Attempting paste via osascript...");
+        // macOS: ONLY use osascript — enigo crashes from background threads
+        // because macOS TSM (Text Services Manager) APIs require main thread
+        info!("Simulating Cmd+V via osascript...");
         let result = std::process::Command::new("osascript")
             .arg("-e")
-            .arg("delay 0.4")
+            .arg("delay 0.35")
             .arg("-e")
             .arg("tell application \"System Events\" to keystroke \"v\" using command down")
             .output();
@@ -84,18 +85,15 @@ fn simulate_paste_keystroke() {
             Ok(output) => {
                 if output.status.success() {
                     info!("osascript paste succeeded");
-                    return;
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    warn!("osascript paste failed: {}", stderr.trim());
                 }
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                warn!("osascript paste failed ({}), trying enigo...", stderr.trim());
             }
             Err(e) => {
-                warn!("osascript spawn failed: {}, trying enigo...", e);
+                error!("osascript command failed to run: {}", e);
             }
         }
-
-        // Strategy 2: enigo (also requires Accessibility)
-        simulate_paste_enigo();
     }
 
     #[cfg(target_os = "windows")]
@@ -109,11 +107,12 @@ fn simulate_paste_keystroke() {
     }
 }
 
-/// Fallback paste simulation using enigo
+/// Paste simulation using enigo (Windows/Linux only — crashes on macOS from bg thread)
+#[cfg(not(target_os = "macos"))]
 fn simulate_paste_enigo() {
     use enigo::{Enigo, Key, Keyboard, Settings};
 
-    info!("Attempting paste via enigo...");
+    info!("Simulating paste via enigo...");
 
     let mut enigo = match Enigo::new(&Settings::default()) {
         Ok(e) => e,
@@ -123,34 +122,11 @@ fn simulate_paste_enigo() {
         }
     };
 
-    #[cfg(target_os = "macos")]
-    {
-        // Small delay for focus
-        thread::sleep(Duration::from_millis(100));
-        enigo.key(Key::Meta, enigo::Direction::Press).ok();
-        thread::sleep(Duration::from_millis(30));
-        enigo.key(Key::Unicode('v'), enigo::Direction::Click).ok();
-        thread::sleep(Duration::from_millis(30));
-        enigo.key(Key::Meta, enigo::Direction::Release).ok();
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        enigo.key(Key::Control, enigo::Direction::Press).ok();
-        thread::sleep(Duration::from_millis(30));
-        enigo.key(Key::Unicode('v'), enigo::Direction::Click).ok();
-        thread::sleep(Duration::from_millis(30));
-        enigo.key(Key::Control, enigo::Direction::Release).ok();
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        enigo.key(Key::Control, enigo::Direction::Press).ok();
-        thread::sleep(Duration::from_millis(30));
-        enigo.key(Key::Unicode('v'), enigo::Direction::Click).ok();
-        thread::sleep(Duration::from_millis(30));
-        enigo.key(Key::Control, enigo::Direction::Release).ok();
-    }
+    enigo.key(Key::Control, enigo::Direction::Press).ok();
+    thread::sleep(Duration::from_millis(30));
+    enigo.key(Key::Unicode('v'), enigo::Direction::Click).ok();
+    thread::sleep(Duration::from_millis(30));
+    enigo.key(Key::Control, enigo::Direction::Release).ok();
 }
 
 /// Write multiple texts joined by delimiter to clipboard and simulate paste

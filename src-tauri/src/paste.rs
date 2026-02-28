@@ -1,5 +1,5 @@
 use arboard::Clipboard;
-use log::{error, warn};
+use log::{error, info, warn};
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
@@ -23,8 +23,8 @@ pub fn paste_text_and_simulate(text: &str) {
     // Drop clipboard before simulating paste
     drop(clipboard);
 
-    // Short delay before simulating paste
-    thread::sleep(Duration::from_millis(250));
+    // Wait for the target app to regain focus after CoPas hides
+    thread::sleep(Duration::from_millis(350));
 
     simulate_paste_keystroke();
 }
@@ -63,7 +63,7 @@ pub fn paste_image_and_simulate(image_path: &Path) {
     }
 
     drop(clipboard);
-    thread::sleep(Duration::from_millis(250));
+    thread::sleep(Duration::from_millis(350));
     simulate_paste_keystroke();
 }
 
@@ -71,27 +71,31 @@ pub fn paste_image_and_simulate(image_path: &Path) {
 fn simulate_paste_keystroke() {
     #[cfg(target_os = "macos")]
     {
-        // Use osascript on macOS - more reliable than enigo for accessibility
+        // Strategy 1: osascript (requires Accessibility permission)
+        info!("Attempting paste via osascript...");
         let result = std::process::Command::new("osascript")
             .arg("-e")
-            .arg("delay 0.3")
+            .arg("delay 0.4")
             .arg("-e")
             .arg("tell application \"System Events\" to keystroke \"v\" using command down")
             .output();
 
         match result {
             Ok(output) => {
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    warn!("osascript paste returned error: {}", stderr);
-                    simulate_paste_enigo();
+                if output.status.success() {
+                    info!("osascript paste succeeded");
+                    return;
                 }
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                warn!("osascript paste failed ({}), trying enigo...", stderr.trim());
             }
             Err(e) => {
-                warn!("osascript paste failed, trying enigo: {}", e);
-                simulate_paste_enigo();
+                warn!("osascript spawn failed: {}, trying enigo...", e);
             }
         }
+
+        // Strategy 2: enigo (also requires Accessibility)
+        simulate_paste_enigo();
     }
 
     #[cfg(target_os = "windows")]
@@ -109,6 +113,8 @@ fn simulate_paste_keystroke() {
 fn simulate_paste_enigo() {
     use enigo::{Enigo, Key, Keyboard, Settings};
 
+    info!("Attempting paste via enigo...");
+
     let mut enigo = match Enigo::new(&Settings::default()) {
         Ok(e) => e,
         Err(e) => {
@@ -119,22 +125,30 @@ fn simulate_paste_enigo() {
 
     #[cfg(target_os = "macos")]
     {
+        // Small delay for focus
+        thread::sleep(Duration::from_millis(100));
         enigo.key(Key::Meta, enigo::Direction::Press).ok();
+        thread::sleep(Duration::from_millis(30));
         enigo.key(Key::Unicode('v'), enigo::Direction::Click).ok();
+        thread::sleep(Duration::from_millis(30));
         enigo.key(Key::Meta, enigo::Direction::Release).ok();
     }
 
     #[cfg(target_os = "windows")]
     {
         enigo.key(Key::Control, enigo::Direction::Press).ok();
+        thread::sleep(Duration::from_millis(30));
         enigo.key(Key::Unicode('v'), enigo::Direction::Click).ok();
+        thread::sleep(Duration::from_millis(30));
         enigo.key(Key::Control, enigo::Direction::Release).ok();
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         enigo.key(Key::Control, enigo::Direction::Press).ok();
+        thread::sleep(Duration::from_millis(30));
         enigo.key(Key::Unicode('v'), enigo::Direction::Click).ok();
+        thread::sleep(Duration::from_millis(30));
         enigo.key(Key::Control, enigo::Direction::Release).ok();
     }
 }

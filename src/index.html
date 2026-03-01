@@ -82,12 +82,15 @@
       </div>
       <nav class="tab-list" id="tab-list"></nav>
       <div class="sb-vault">
-        <button class="vault-btn" id="btn-vault" title="Kéo khóa bảo mật">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="vault-btn" id="btn-vault" title="Vault Bảo Mật">
+          <svg class="vault-lock-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            <circle cx="12" cy="16" r="1" fill="currentColor" />
           </svg>
-          <span>Kéo khóa</span>
+          <span>Vault Bảo Mật</span>
+          <span class="pro-badge">PRO</span>
         </button>
       </div>
       <div class="sb-stats">
@@ -366,12 +369,22 @@
   <!-- Vault Unlock Overlay -->
   <div class="vault-overlay" id="vault-overlay" style="display:none">
     <div class="vault-card">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5">
-        <rect x="3" y="11" width="18" height="11" rx="2" />
-        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-      </svg>
+      <div class="vault-icon-wrap">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          <circle cx="12" cy="16" r="1" fill="var(--acc)" />
+        </svg>
+        <span class="vault-pro-label">PRO</span>
+      </div>
       <h3 id="vault-title">Mở khóa Vault</h3>
       <p id="vault-desc">Nhập mã PIN để truy cập dữ liệu bảo mật</p>
+      <div class="vault-features">
+        <div class="vault-feat"><span class="feat-icon">🔐</span> Mã hóa PIN cục bộ — không gửi lên mạng</div>
+        <div class="vault-feat"><span class="feat-icon">🛡️</span> Dữ liệu lưu trữ riêng biệt, bảo mật</div>
+        <div class="vault-feat"><span class="feat-icon">👁️</span> Ẩn clipboard nhạy cảm khỏi danh sách chính</div>
+      </div>
       <input type="password" class="vault-pin-input" id="vault-pin" placeholder="Mã PIN (4-8 số)" maxlength="8"
         autocomplete="off">
       <div class="vault-actions">

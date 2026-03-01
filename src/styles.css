@@ -2139,6 +2139,90 @@ body.os-mac {
   box-shadow: 0 4px 16px rgba(16, 185, 129, .3);
 }
 
+.vault-btn:hover .vault-lock-icon {
+  animation: lockPulse 0.6s ease;
+}
+
+@keyframes lockPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.2) rotate(-5deg);
+  }
+}
+
+/* PRO badge */
+.pro-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, .3);
+}
+
+/* Vault icon wrapper in overlay */
+.vault-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--acc-bg), var(--acc-bg2));
+  margin: 0 auto 12px;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, .15);
+}
+
+.vault-pro-label {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, .3);
+}
+
+/* Vault security features */
+.vault-features {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 16px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border-radius: var(--r-s);
+  border: 1px solid var(--bdr);
+}
+
+.vault-feat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--c2);
+  line-height: 1.4;
+}
+
+.feat-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
 /* == VAULT OVERLAY == */
 .vault-overlay {
   position: fixed;

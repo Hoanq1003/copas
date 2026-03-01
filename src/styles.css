@@ -134,7 +134,6 @@ body::before {
   background: var(--bg-side);
   backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--bdr);
-  -webkit-app-region: drag;
   user-select: none;
   position: relative;
   z-index: 1;

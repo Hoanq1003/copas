@@ -6,38 +6,33 @@ use std::thread;
 use std::time::Duration;
 
 /// Global flag: when true, clipboard watcher should skip the next change
-/// (because we're the ones writing to clipboard for paste, not the user copying)
 pub static PASTE_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
-/// Write text to clipboard and simulate paste (Cmd+V on macOS, Ctrl+V on Windows)
+/// Write text to clipboard and simulate paste
 pub fn paste_text_and_simulate(text: &str) {
-    // Signal clipboard watcher to ignore the next clipboard change
     PASTE_IN_PROGRESS.store(true, Ordering::SeqCst);
 
     let mut clipboard = match Clipboard::new() {
         Ok(c) => c,
         Err(e) => {
-            error!("Failed to open clipboard for paste: {}", e);
+            error!("paste: clipboard open failed: {}", e);
             PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
             return;
         }
     };
 
     if let Err(e) = clipboard.set_text(text) {
-        error!("Failed to set clipboard text: {}", e);
+        error!("paste: clipboard set_text failed: {}", e);
         PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
         return;
     }
-
     drop(clipboard);
 
-    // Wait for the target app to regain focus after CoPas hides
-    thread::sleep(Duration::from_millis(500));
+    // Activate previous app and simulate Cmd+V
+    activate_and_paste();
 
-    simulate_paste_keystroke();
-
-    // Keep the flag active for a bit so the watcher's next poll cycle skips
-    thread::sleep(Duration::from_millis(800));
+    // Keep flag active for watcher to skip
+    thread::sleep(Duration::from_millis(600));
     PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
 }
 
@@ -48,7 +43,7 @@ pub fn paste_image_and_simulate(image_path: &Path) {
     let img = match image::open(image_path) {
         Ok(img) => img,
         Err(e) => {
-            error!("Failed to open image file {:?}: {}", image_path, e);
+            error!("paste: image open failed: {}", e);
             PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
             return;
         }
@@ -61,7 +56,7 @@ pub fn paste_image_and_simulate(image_path: &Path) {
     let mut clipboard = match Clipboard::new() {
         Ok(c) => c,
         Err(e) => {
-            error!("Failed to open clipboard for image paste: {}", e);
+            error!("paste: clipboard open for image failed: {}", e);
             PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
             return;
         }
@@ -74,96 +69,91 @@ pub fn paste_image_and_simulate(image_path: &Path) {
     };
 
     if let Err(e) = clipboard.set_image(img_data) {
-        error!("Failed to set clipboard image: {}", e);
+        error!("paste: clipboard set_image failed: {}", e);
         PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
         return;
     }
-
     drop(clipboard);
-    thread::sleep(Duration::from_millis(500));
-    simulate_paste_keystroke();
 
-    thread::sleep(Duration::from_millis(800));
+    activate_and_paste();
+
+    thread::sleep(Duration::from_millis(600));
     PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
 }
 
-/// Simulate Ctrl+V (Windows) or Cmd+V (macOS)
-fn simulate_paste_keystroke() {
+/// Activate the previous app and simulate paste keystroke
+fn activate_and_paste() {
     #[cfg(target_os = "macos")]
     {
+        // Step 1: Get the saved previous app name
+        let prev_app = {
+            crate::PREVIOUS_APP_NAME.lock()
+                .map(|n| n.clone())
+                .unwrap_or_default()
+        };
+
+        // Step 2: Activate that app by name
+        if !prev_app.is_empty() {
+            info!("paste: activating '{}' ...", prev_app);
+            let script = format!(
+                r#"tell application "{}" to activate"#,
+                prev_app
+            );
+            let _ = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(&script)
+                .output();
+        } else {
+            info!("paste: no previous app saved, using generic activation");
+            // Fallback: Cmd+Tab to switch to previous app
+            let _ = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(r#"tell application "System Events" to set frontmost of (first process whose frontmost is false and visible is true) to true"#)
+                .output();
+        }
+
+        // Wait for activation to complete
+        thread::sleep(Duration::from_millis(400));
+
+        // Step 3: Simulate Cmd+V via CGEvent
         simulate_paste_cgevent();
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(not(target_os = "macos"))]
     {
-        simulate_paste_enigo();
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
+        thread::sleep(Duration::from_millis(300));
         simulate_paste_enigo();
     }
 }
 
-/// macOS: Use CoreGraphics CGEvent to simulate Cmd+V
-/// First activate the previous app (since CoPas just hid), then post CGEvent.
-/// osascript CAN activate apps (just can't send keystrokes — error 1002).
+/// macOS: CGEvent Cmd+V
 #[cfg(target_os = "macos")]
 fn simulate_paste_cgevent() {
     use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
     use core_graphics::event::CGEventTapLocation;
 
-    // Step 1: Activate the frontmost non-CoPas app
-    // osascript CAN activate apps, just can't send keystrokes
-    info!("Activating previous app...");
-    let _ = std::process::Command::new("osascript")
-        .arg("-e")
-        .arg(r#"
-            tell application "System Events"
-                set appList to every process whose frontmost is true
-                if (count of appList) > 0 then
-                    set frontApp to name of item 1 of appList
-                    if frontApp is not "CoPas" and frontApp is not "copas" then
-                        tell process frontApp to set frontmost to true
-                    end if
-                end if
-            end tell
-        "#)
-        .output();
-
-    // Wait for the app to fully activate
-    thread::sleep(Duration::from_millis(300));
-
-    // Step 2: Post CGEvent Cmd+V
-    info!("Simulating Cmd+V via CGEvent...");
+    info!("paste: posting CGEvent Cmd+V ...");
 
     const V_KEY: CGKeyCode = 9;
 
     let source = match CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
         Ok(s) => s,
         Err(_) => {
-            error!("Failed to create CGEventSource — Accessibility permission required! \
-                    Go to System Settings → Privacy & Security → Accessibility → enable CoPas");
+            error!("paste: CGEventSource failed — Accessibility permission needed");
             return;
         }
     };
 
     let key_down = match CGEvent::new_keyboard_event(source.clone(), V_KEY, true) {
         Ok(e) => e,
-        Err(_) => {
-            error!("Failed to create CGEvent key down");
-            return;
-        }
+        Err(_) => { error!("paste: CGEvent key_down failed"); return; }
     };
     key_down.set_flags(CGEventFlags::CGEventFlagCommand);
 
     let key_up = match CGEvent::new_keyboard_event(source, V_KEY, false) {
         Ok(e) => e,
-        Err(_) => {
-            error!("Failed to create CGEvent key up");
-            return;
-        }
+        Err(_) => { error!("paste: CGEvent key_up failed"); return; }
     };
     key_up.set_flags(CGEventFlags::CGEventFlagCommand);
 
@@ -171,22 +161,17 @@ fn simulate_paste_cgevent() {
     thread::sleep(Duration::from_millis(50));
     key_up.post(CGEventTapLocation::HID);
 
-    info!("CGEvent Cmd+V posted successfully");
+    info!("paste: CGEvent Cmd+V posted OK");
 }
 
-/// Windows/Linux: Paste simulation using enigo
+/// Windows/Linux: enigo
 #[cfg(not(target_os = "macos"))]
 fn simulate_paste_enigo() {
     use enigo::{Enigo, Key, Keyboard, Settings};
 
-    info!("Simulating paste via enigo...");
-
     let mut enigo = match Enigo::new(&Settings::default()) {
         Ok(e) => e,
-        Err(e) => {
-            error!("Failed to create enigo instance: {}", e);
-            return;
-        }
+        Err(e) => { error!("paste: enigo failed: {}", e); return; }
     };
 
     enigo.key(Key::Control, enigo::Direction::Press).ok();
@@ -196,7 +181,7 @@ fn simulate_paste_enigo() {
     enigo.key(Key::Control, enigo::Direction::Release).ok();
 }
 
-/// Write multiple texts joined by delimiter to clipboard and simulate paste
+/// Bulk paste
 pub fn bulk_paste_text_and_simulate(contents: &[String], delimiter: &str) {
     let resolved_delim = delimiter.replace("\\n", "\n").replace("\\t", "\t");
     let combined = contents.join(&resolved_delim);

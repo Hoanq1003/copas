@@ -5,7 +5,8 @@ mod paste;
 mod storage;
 
 use log::info;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use once_cell::sync::Lazy;
 use storage::Storage;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -297,15 +298,32 @@ fn parse_shortcut(s: &str) -> Result<Shortcut, Box<dyn std::error::Error>> {
     Ok(Shortcut::new(Some(mods), code))
 }
 
-fn show_popup(app_handle: &tauri::AppHandle) {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        // Use center() which correctly handles DPI/scale factor on Retina displays
-        window.center().ok();
+/// Track the previous frontmost app before CoPas shows
+pub static PREVIOUS_APP_NAME: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
 
+fn show_popup(app_handle: &tauri::AppHandle) {
+    // Save the current frontmost app BEFORE showing CoPas
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(output) = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(r#"tell application "System Events" to get name of first process whose frontmost is true"#)
+            .output()
+        {
+            let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !name.is_empty() && name != "CoPas" && name != "copas" {
+                if let Ok(mut prev) = PREVIOUS_APP_NAME.lock() {
+                    *prev = name.clone();
+                    info!("Saved previous app: {}", name);
+                }
+            }
+        }
+    }
+
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.center().ok();
         window.show().ok();
         window.set_focus().ok();
-
-        // Emit popup-shown event for frontend to focus search
         app_handle.emit("popup-shown", ()).ok();
     }
 }

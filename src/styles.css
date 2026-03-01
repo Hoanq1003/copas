@@ -1899,9 +1899,8 @@ mark {
   height: calc(100% - 38px);
 }
 
-.os-mac html,
-.os-mac,
-.os-mac body {
+html,
+body.os-mac {
   border-radius: 12px;
   overflow: hidden;
 }

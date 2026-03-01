@@ -321,6 +321,7 @@ pub fn bulk_paste_and_hide(
     storage: State<StorageState>,
     contents: Vec<String>,
 ) -> serde_json::Value {
+    info!("[bulk_paste] received {} items", contents.len());
     let data = storage.data.lock().unwrap();
     let delim = data.settings.paste_delimiter.clone();
     drop(data);
@@ -331,7 +332,11 @@ pub fn bulk_paste_and_hide(
     }
 
     std::thread::spawn(move || {
+        // Wait for window to fully hide before activating target app
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        info!("[bulk_paste] starting paste with delimiter '{}'", delim);
         paste::bulk_paste_text_and_simulate(&contents, &delim);
+        info!("[bulk_paste] done");
     });
 
     serde_json::json!({"success": true})

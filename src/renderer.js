@@ -408,7 +408,7 @@
         document.addEventListener('keydown', handleKeyDown);
     }
 
-    function handleKeyDown(e) {
+    async function handleKeyDown(e) {
         const ctrl = e.ctrlKey || e.metaKey;
         const shift = e.shiftKey;
         const key = e.key;
@@ -461,14 +461,14 @@
         if (key === 'Enter') {
             e.preventDefault();
             if (isSelectMode && selectedIds.size > 0) {
-                bulkPaste();
+                await bulkPaste();
             } else if (focusedIndex >= 0 && focusedIndex < displayItems.length) {
                 const item = displayItems[focusedIndex];
                 if (item.kind === 'image') {
-                    window.copas.pasteAndHide('', item.imagePath);
+                    await window.copas.pasteAndHide('', item.imagePath || '');
                 } else {
                     let text = parseSnippets(item.contentText || item.content || '');
-                    window.copas.pasteAndHide(text);
+                    await window.copas.pasteAndHide(text, null);
                 }
             }
             return;

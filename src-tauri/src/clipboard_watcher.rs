@@ -84,6 +84,10 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
         loop {
             std::thread::sleep(Duration::from_millis(poll_ms));
 
+            // Skip if paste is in progress — don't re-detect our own clipboard write
+            if crate::paste::PASTE_IN_PROGRESS.load(std::sync::atomic::Ordering::SeqCst) {
+                continue;
+            }
             // Check text
             if let Ok(text) = clipboard.get_text() {
                 if !text.is_empty() {

@@ -1,21 +1,31 @@
 use arboard::Clipboard;
 use log::{error, info};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
+/// Global flag: when true, clipboard watcher should skip the next change
+/// (because we're the ones writing to clipboard for paste, not the user copying)
+pub static PASTE_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
+
 /// Write text to clipboard and simulate paste (Cmd+V on macOS, Ctrl+V on Windows)
 pub fn paste_text_and_simulate(text: &str) {
+    // Signal clipboard watcher to ignore the next clipboard change
+    PASTE_IN_PROGRESS.store(true, Ordering::SeqCst);
+
     let mut clipboard = match Clipboard::new() {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to open clipboard for paste: {}", e);
+            PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
             return;
         }
     };
 
     if let Err(e) = clipboard.set_text(text) {
         error!("Failed to set clipboard text: {}", e);
+        PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
         return;
     }
 
@@ -25,14 +35,21 @@ pub fn paste_text_and_simulate(text: &str) {
     thread::sleep(Duration::from_millis(500));
 
     simulate_paste_keystroke();
+
+    // Keep the flag active for a bit so the watcher's next poll cycle skips
+    thread::sleep(Duration::from_millis(800));
+    PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
 }
 
 /// Write image to clipboard and simulate paste
 pub fn paste_image_and_simulate(image_path: &Path) {
+    PASTE_IN_PROGRESS.store(true, Ordering::SeqCst);
+
     let img = match image::open(image_path) {
         Ok(img) => img,
         Err(e) => {
             error!("Failed to open image file {:?}: {}", image_path, e);
+            PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
             return;
         }
     };
@@ -45,6 +62,7 @@ pub fn paste_image_and_simulate(image_path: &Path) {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to open clipboard for image paste: {}", e);
+            PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
             return;
         }
     };
@@ -57,12 +75,16 @@ pub fn paste_image_and_simulate(image_path: &Path) {
 
     if let Err(e) = clipboard.set_image(img_data) {
         error!("Failed to set clipboard image: {}", e);
+        PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
         return;
     }
 
     drop(clipboard);
     thread::sleep(Duration::from_millis(500));
     simulate_paste_keystroke();
+
+    thread::sleep(Duration::from_millis(800));
+    PASTE_IN_PROGRESS.store(false, Ordering::SeqCst);
 }
 
 /// Simulate Ctrl+V (Windows) or Cmd+V (macOS)
@@ -84,9 +106,8 @@ fn simulate_paste_keystroke() {
 }
 
 /// macOS: Use CoreGraphics CGEvent to simulate Cmd+V
-/// This works from any thread and only requires Accessibility permission.
-/// Unlike osascript which is blocked by macOS security (error 1002),
-/// CGEvent is the proper low-level API for keyboard simulation.
+/// CGEvent works from any thread and only requires Accessibility permission.
+/// osascript is blocked by macOS security (error 1002).
 #[cfg(target_os = "macos")]
 fn simulate_paste_cgevent() {
     use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
@@ -101,7 +122,8 @@ fn simulate_paste_cgevent() {
     let source = match CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
         Ok(s) => s,
         Err(_) => {
-            error!("Failed to create CGEventSource — check Accessibility permission");
+            error!("Failed to create CGEventSource — Accessibility permission required! \
+                    Go to System Settings → Privacy & Security → Accessibility → enable CoPas");
             return;
         }
     };
@@ -128,7 +150,7 @@ fn simulate_paste_cgevent() {
 
     // Post events to the HID system
     key_down.post(CGEventTapLocation::HID);
-    thread::sleep(Duration::from_millis(30));
+    thread::sleep(Duration::from_millis(50));
     key_up.post(CGEventTapLocation::HID);
 
     info!("CGEvent Cmd+V posted successfully");

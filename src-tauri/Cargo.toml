@@ -1,6 +1,6 @@
 [package]
 name = "copas"
-version = "2.10.2"
+version = "2.10.3"
 description = "CoPas - Clipboard Manager for Windows & macOS"
 authors = ["CoPas Team"]
 license = "MIT"

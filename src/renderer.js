@@ -17,14 +17,70 @@
     const isWin = navigator.userAgent.includes('Win');
     document.body.classList.add(isMac ? 'os-mac' : 'os-win');
 
-    // ===== PREMIUM / DEV MODE =====
-    // Set to false for production release to lock premium features
-    const DEV_MODE = true;
-    function isPremium() { return DEV_MODE; }
-    function requirePremium(featureName) {
-        if (isPremium()) return true;
-        toast(`🔒 "${featureName}" là tính năng Premium. Nâng cấp để sử dụng!`, 'warning');
+    // ===== PREMIUM LICENSE SYSTEM =====
+    let _premiumCached = null; // cached premium status
+    async function isPremium() {
+        if (_premiumCached !== null) return _premiumCached;
+        try {
+            const res = await window.copas.checkLicense();
+            _premiumCached = res.premium === true;
+            return _premiumCached;
+        } catch { return false; }
+    }
+    async function requirePremium(featureName) {
+        if (await isPremium()) return true;
+        showLicenseDialog(featureName);
         return false;
+    }
+    async function showLicenseDialog(featureName) {
+        const res = await window.copas.getMachineId();
+        const machineId = res.machineId || '???';
+        const ov = mk('div', 'dlg-overlay');
+        ov.innerHTML = `
+        <div class="dlg-box" style="max-width:420px">
+            <div class="dlg-title">🔑 Kích hoạt Premium</div>
+            <div class="dlg-body" style="text-align:center">
+                <p style="margin:0 0 8px;font-size:13px;color:var(--c2)">
+                    <strong>"${featureName}"</strong> là tính năng Premium.
+                </p>
+                <div class="vault-features" style="text-align:left;margin:12px 0">
+                    <div class="vault-feat"><span class="feat-icon">🔐</span> Vault bảo mật với mã PIN</div>
+                    <div class="vault-feat"><span class="feat-icon">📸</span> Chụp màn hình nâng cao</div>
+                    <div class="vault-feat"><span class="feat-icon">🔍</span> OCR trích xuất văn bản</div>
+                </div>
+                <div style="background:var(--bg-card);border:1px solid var(--bdr);border-radius:var(--r-s);padding:10px;margin:10px 0">
+                    <div style="font-size:11px;color:var(--c3);margin-bottom:4px">Mã máy (Machine ID):</div>
+                    <code style="font-size:12px;word-break:break-all;color:var(--acc)">${machineId}</code>
+                </div>
+                <input type="text" id="license-key-input" placeholder="COPAS-XXXXX-XXXXX-XXXXX-XXXXX"
+                    style="width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r-s);
+                    background:var(--bg);color:var(--c1);font-family:monospace;font-size:13px;text-align:center;
+                    letter-spacing:1px;text-transform:uppercase;margin:8px 0" autocomplete="off">
+                <p style="margin:8px 0 0;font-size:11px;color:var(--c3)">
+                    Liên hệ <strong>admin</strong> cung cấp Mã máy để nhận key.
+                    <br>Key gắn với máy — không dùng được trên máy khác.
+                </p>
+            </div>
+            <div class="dlg-foot">
+                <button class="dlg-btn cancel" id="lic-cancel">Đóng</button>
+                <button class="dlg-btn primary" id="lic-activate">Kích hoạt</button>
+            </div>
+        </div>`;
+        dlgRoot.appendChild(ov);
+        ov.querySelector('#lic-cancel').onclick = () => ov.remove();
+        ov.querySelector('#lic-activate').onclick = async () => {
+            const key = ov.querySelector('#license-key-input').value.trim();
+            if (!key) { toast('Vui lòng nhập license key!', 'warning'); return; }
+            const r = await window.copas.activateLicense(key);
+            if (r.success) {
+                _premiumCached = true;
+                toast('🎉 Đã kích hoạt Premium thành công!', 'success');
+                ov.remove();
+            } else {
+                toast('❌ ' + (r.error || 'Key không hợp lệ'), 'error');
+            }
+        };
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
     }
 
     // Tauri Backend Shim
@@ -70,6 +126,9 @@
         moveToVault: (id) => invoke('move_to_vault', { id }),
         removeFromVault: (id) => invoke('remove_from_vault', { id }),
         getVaultItems: () => invoke('get_vault_items'),
+        getMachineId: () => invoke('get_machine_id'),
+        activateLicense: (key) => invoke('activate_license', { key }),
+        checkLicense: () => invoke('check_license'),
         onUpdateStatus: (cb) => listen('update-status', (e) => cb(e.payload)),
         minimize: () => invoke('window_minimize'),
         maximize: () => invoke('window_maximize'),
@@ -333,8 +392,8 @@
 
         // Select buttons
         $('#btn-sel').addEventListener('click', () => toggleSel(!isSelectMode));
-        $('#btn-scr').addEventListener('click', () => {
-            if (!requirePremium('Chụp màn hình')) return;
+        $('#btn-scr').addEventListener('click', async () => {
+            if (!(await requirePremium('Chụp màn hình'))) return;
             startScreenshot();
         });
         $('#btn-bulk-paste').addEventListener('click', bulkPaste);
@@ -1010,7 +1069,7 @@
             closeScreenshot();
         });
         $('#ic-copy').addEventListener('click', async () => {
-            if (!requirePremium('Trích xuất OCR')) return;
+            if (!(await requirePremium('Trích xuất OCR'))) return;
             // OCR: Extract text from cropped area
             const x = Math.min(sx, curX), y = Math.min(sy, curY);
             const w = Math.abs(curX - sx), h = Math.abs(curY - sy);
@@ -1224,7 +1283,7 @@
     let vaultUnlocked = false;
     function bindVault() {
         $('#btn-vault').addEventListener('click', async () => {
-            if (!requirePremium('Vault bảo mật')) return;
+            if (!(await requirePremium('Vault bảo mật'))) return;
             const res = await window.copas.hasVaultPin();
             if (!res.hasPin) {
                 // Setup new PIN

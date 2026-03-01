@@ -1,5 +1,6 @@
 mod clipboard_watcher;
 mod commands;
+pub mod license;
 mod models;
 mod paste;
 mod storage;
@@ -106,6 +107,9 @@ pub fn run() {
             commands::move_to_vault,
             commands::remove_from_vault,
             commands::get_vault_items,
+            commands::get_machine_id,
+            commands::activate_license,
+            commands::check_license,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

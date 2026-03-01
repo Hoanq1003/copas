@@ -617,3 +617,38 @@ pub fn get_vault_items(storage: State<StorageState>) -> serde_json::Value {
     let vault_items: Vec<&crate::models::Item> = data.items.iter().filter(|i| i.in_vault).collect();
     serde_json::json!({"items": vault_items})
 }
+
+// ============ LICENSE ============
+
+#[tauri::command]
+pub fn get_machine_id() -> serde_json::Value {
+    let machine_id = crate::license::get_machine_id();
+    serde_json::json!({"machineId": machine_id})
+}
+
+#[tauri::command]
+pub fn activate_license(storage: State<StorageState>, key: String) -> serde_json::Value {
+    let valid = crate::license::validate_license_key(&key);
+    if valid {
+        let mut data = storage.data.lock().unwrap();
+        data.settings.license_key = key.trim().to_uppercase();
+        drop(data);
+        storage.save_sync();
+        info!("License activated successfully");
+        serde_json::json!({"success": true})
+    } else {
+        info!("License activation failed: invalid key");
+        serde_json::json!({"success": false, "error": "Key không hợp lệ hoặc không khớp với máy này"})
+    }
+}
+
+#[tauri::command]
+pub fn check_license(storage: State<StorageState>) -> serde_json::Value {
+    let data = storage.data.lock().unwrap();
+    let key = &data.settings.license_key;
+    if key.is_empty() {
+        return serde_json::json!({"premium": false});
+    }
+    let valid = crate::license::validate_license_key(key);
+    serde_json::json!({"premium": valid})
+}

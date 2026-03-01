@@ -88,6 +88,9 @@ pub struct Settings {
     /// Vault auto-lock timeout in seconds (0 = never)
     #[serde(default = "default_vault_timeout")]
     pub vault_timeout: u64,
+    /// Stored license key for premium features
+    #[serde(default)]
+    pub license_key: String,
 }
 
 impl Default for Settings {
@@ -104,6 +107,7 @@ impl Default for Settings {
             paste_delimiter: default_paste_delimiter(),
             vault_pin_hash: String::new(),
             vault_timeout: default_vault_timeout(),
+            license_key: String::new(),
         }
     }
 }

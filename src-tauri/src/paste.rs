@@ -126,31 +126,118 @@ fn activate_and_paste() {
     }
 }
 
-/// macOS: osascript System Events keystroke Cmd+V
-/// This is more reliable than CGEvent because it doesn't require
-/// the calling app (CoPas) to have Accessibility permission.
+/// macOS: Hybrid paste — tries CGEvent first, falls back to osascript
 #[cfg(target_os = "macos")]
 fn simulate_paste_cgevent() {
-    info!("paste: sending Cmd+V via osascript System Events ...");
+    // Method 1: Try CGEvent (fast, needs CoPas in Accessibility)
+    if try_cgevent_paste() {
+        info!("paste: CGEvent Cmd+V succeeded");
+        return;
+    }
 
+    // Method 2: Try osascript keystroke (needs osascript in Accessibility)
+    info!("paste: CGEvent failed, trying osascript fallback...");
+    if try_osascript_paste() {
+        info!("paste: osascript Cmd+V succeeded");
+        return;
+    }
+
+    // Method 3: Try direct text insertion for the previous app
+    info!("paste: osascript keystroke also failed, trying direct insertion...");
+    if try_direct_paste() {
+        info!("paste: direct paste succeeded");
+        return;
+    }
+
+    error!("paste: ALL paste methods failed. User needs to grant Accessibility permission to CoPas.");
+}
+
+#[cfg(target_os = "macos")]
+fn try_cgevent_paste() -> bool {
+    use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
+    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+    use core_graphics::event::CGEventTapLocation;
+
+    const V_KEY: CGKeyCode = 9;
+
+    let source = match CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
+        Ok(s) => s,
+        Err(_) => {
+            error!("paste: CGEventSource failed — no Accessibility permission for CoPas");
+            return false;
+        }
+    };
+
+    let key_down = match CGEvent::new_keyboard_event(source.clone(), V_KEY, true) {
+        Ok(e) => e,
+        Err(_) => return false,
+    };
+    key_down.set_flags(CGEventFlags::CGEventFlagCommand);
+
+    let key_up = match CGEvent::new_keyboard_event(source, V_KEY, false) {
+        Ok(e) => e,
+        Err(_) => return false,
+    };
+    key_up.set_flags(CGEventFlags::CGEventFlagCommand);
+
+    key_down.post(CGEventTapLocation::HID);
+    thread::sleep(Duration::from_millis(50));
+    key_up.post(CGEventTapLocation::HID);
+
+    true
+}
+
+#[cfg(target_os = "macos")]
+fn try_osascript_paste() -> bool {
     let result = std::process::Command::new("osascript")
         .arg("-e")
         .arg(r#"tell application "System Events" to keystroke "v" using command down"#)
         .output();
 
     match result {
-        Ok(output) => {
-            if output.status.success() {
-                info!("paste: Cmd+V sent OK via osascript");
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                error!("paste: osascript Cmd+V failed: {}", stderr);
-            }
-        }
-        Err(e) => {
-            error!("paste: osascript command failed: {}", e);
-        }
+        Ok(output) => output.status.success(),
+        Err(_) => false,
     }
+}
+
+#[cfg(target_os = "macos")]
+fn try_direct_paste() -> bool {
+    // Get clipboard text and try to insert via app's Edit menu
+    let prev_app = crate::PREVIOUS_APP_NAME.lock()
+        .map(|n| n.clone())
+        .unwrap_or_default();
+
+    if prev_app.is_empty() {
+        return false;
+    }
+
+    // Use System Events to click Edit > Paste menu
+    let script = format!(
+        r#"tell application "System Events"
+            tell process "{}"
+                click menu item "Paste" of menu "Edit" of menu bar 1
+            end tell
+        end tell"#,
+        prev_app
+    );
+
+    let result = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(&script)
+        .output();
+
+    match result {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
+}
+
+/// Check if Accessibility permission is granted for this process
+#[cfg(target_os = "macos")]
+pub fn check_accessibility() -> bool {
+    // Try creating a CGEventSource — fails without Accessibility
+    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+    CGEventSource::new(CGEventSourceStateID::HIDSystemState).is_ok()
 }
 
 /// Windows/Linux: enigo

@@ -129,6 +129,7 @@
         getMachineId: () => invoke('get_machine_id'),
         activateLicense: (key) => invoke('activate_license', { key }),
         checkLicense: () => invoke('check_license'),
+        checkAccessibility: () => invoke('check_accessibility'),
         onUpdateStatus: (cb) => listen('update-status', (e) => cb(e.payload)),
         minimize: () => invoke('window_minimize'),
         maximize: () => invoke('window_maximize'),
@@ -162,6 +163,44 @@
         bindVault();
         updateGuideShortcut();
         bindAutoUpdate();
+
+        // Check Accessibility permission for paste on macOS
+        if (isMac) {
+            try {
+                const acc = await window.copas.checkAccessibility();
+                if (!acc.granted) {
+                    setTimeout(() => {
+                        const ov = mk('div', 'dlg-overlay');
+                        ov.innerHTML = `
+                        <div class="dlg-box" style="max-width:420px">
+                            <div class="dlg-title">⚠️ Cần cấp quyền Accessibility</div>
+                            <div class="dlg-body">
+                                <p style="margin:0 0 10px;font-size:13px">Để <strong>dán nội dung</strong> (Cmd+V), CoPas cần quyền Accessibility.</p>
+                                <div class="vault-features" style="margin:10px 0">
+                                    <div class="vault-feat"><span class="feat-icon">1️⃣</span> Mở <strong>System Settings</strong></div>
+                                    <div class="vault-feat"><span class="feat-icon">2️⃣</span> Vào <strong>Privacy & Security → Accessibility</strong></div>
+                                    <div class="vault-feat"><span class="feat-icon">3️⃣</span> Bật <strong>CoPas</strong> (hoặc bấm + để thêm)</div>
+                                    <div class="vault-feat"><span class="feat-icon">4️⃣</span> <strong>Khởi động lại CoPas</strong></div>
+                                </div>
+                                <p style="margin:8px 0 0;font-size:11px;color:var(--c3)">Nếu không thấy CoPas, bấm + rồi chọn CoPas.app từ Applications.</p>
+                            </div>
+                            <div class="dlg-foot">
+                                <button class="dlg-btn cancel" id="acc-later">Để sau</button>
+                                <button class="dlg-btn primary" id="acc-open">Mở Settings</button>
+                            </div>
+                        </div>`;
+                        dlgRoot.appendChild(ov);
+                        ov.querySelector('#acc-later').onclick = () => ov.remove();
+                        ov.querySelector('#acc-open').onclick = () => {
+                            // Open Accessibility settings directly
+                            window.__TAURI__.shell?.open('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+                            ov.remove();
+                        };
+                        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+                    }, 2000);
+                }
+            } catch (e) { console.log('Accessibility check error:', e); }
+        }
 
         // Listen for global screenshot shortcut
         window.copas.onStartScreenshot(() => {

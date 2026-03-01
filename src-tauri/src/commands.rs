@@ -657,3 +657,16 @@ pub fn check_license(storage: State<StorageState>) -> serde_json::Value {
     let valid = crate::license::validate_license_key(key);
     serde_json::json!({"premium": valid})
 }
+
+#[tauri::command]
+pub fn check_accessibility() -> serde_json::Value {
+    #[cfg(target_os = "macos")]
+    {
+        let ok = crate::paste::check_accessibility();
+        serde_json::json!({"granted": ok})
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        serde_json::json!({"granted": true})
+    }
+}

@@ -110,6 +110,7 @@ pub fn run() {
             commands::get_machine_id,
             commands::activate_license,
             commands::check_license,
+            commands::check_accessibility,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

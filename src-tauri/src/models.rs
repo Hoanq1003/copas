@@ -72,6 +72,8 @@ pub struct Settings {
     pub shortcut_toggle: String,
     #[serde(default = "default_shortcut_paste")]
     pub shortcut_paste: String,
+    #[serde(default = "default_shortcut_screenshot")]
+    pub shortcut_screenshot: String,
     #[serde(default = "default_poll_interval")]
     pub poll_interval: u64,
     #[serde(default = "default_true")]
@@ -95,6 +97,7 @@ impl Default for Settings {
             max_history: default_max_history(),
             shortcut_toggle: default_shortcut_toggle(),
             shortcut_paste: default_shortcut_paste(),
+            shortcut_screenshot: default_shortcut_screenshot(),
             poll_interval: default_poll_interval(),
             show_notifications: true,
             auto_start: false,
@@ -119,6 +122,13 @@ fn default_shortcut_paste() -> String {
         "Cmd+Shift+B".into()
     } else {
         "Ctrl+Shift+B".into()
+    }
+}
+fn default_shortcut_screenshot() -> String {
+    if cfg!(target_os = "macos") {
+        "Cmd+Shift+S".into()
+    } else {
+        "Ctrl+Shift+S".into()
     }
 }
 fn default_poll_interval() -> u64 { 500 }

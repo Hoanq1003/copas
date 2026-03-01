@@ -1,12 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "CoPas",
-  "version": "2.10.3",
+  "version": "2.10.4",
   "identifier": "com.copas.clipboard-manager",
   "build": {
     "frontendDist": "../src"
   },
   "app": {
+    "macOSPrivateApi": true,
     "withGlobalTauri": true,
     "windows": [
       {

@@ -36,10 +36,13 @@ pub fn run() {
                 .expect("Failed to get app data dir");
             let storage = Arc::new(Storage::new(&app_data_dir));
 
-            // Get shortcut from settings before moving storage into state
-            let shortcut_str = {
+            // Get shortcuts from settings before moving storage into state
+            let (shortcut_str, screenshot_shortcut_str) = {
                 let data = storage.data.lock().unwrap();
-                data.settings.shortcut_toggle.clone()
+                (
+                    data.settings.shortcut_toggle.clone(),
+                    data.settings.shortcut_screenshot.clone(),
+                )
             };
 
             // Manage state
@@ -55,7 +58,7 @@ pub fn run() {
             setup_tray(app)?;
 
             // Setup global shortcut
-            setup_global_shortcut(app, &shortcut_str)?;
+            setup_global_shortcut(app, &shortcut_str, &screenshot_shortcut_str)?;
 
             // Auto-hide on blur (focus lost)
             let window = app.get_webview_window("main").unwrap();
@@ -183,6 +186,7 @@ fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 fn setup_global_shortcut(
     app: &tauri::App,
     shortcut_str: &str,
+    screenshot_shortcut_str: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Parse shortcut string like "Cmd+Shift+V" or "Ctrl+Shift+V"
     let shortcut = parse_shortcut(shortcut_str)?;
@@ -199,8 +203,8 @@ fn setup_global_shortcut(
         }
     })?;
 
-    let scr_shortcut_str = if cfg!(target_os = "macos") { "Cmd+Shift+S" } else { "Ctrl+Shift+S" };
-    if let Ok(scr_shortcut) = parse_shortcut(scr_shortcut_str) {
+    // Register screenshot shortcut from user settings
+    if let Ok(scr_shortcut) = parse_shortcut(screenshot_shortcut_str) {
         app.global_shortcut().on_shortcut(scr_shortcut, move |app_handle, _hotkey, event| {
             if event.state == ShortcutState::Pressed {
                 use tauri::Emitter;

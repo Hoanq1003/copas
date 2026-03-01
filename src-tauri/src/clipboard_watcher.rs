@@ -123,9 +123,14 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
                             in_vault: false,
                         };
 
-                        // Add to storage
+                        // Add to storage (de-duplicate: remove old entry with same content)
                         {
                             let mut data = storage.data.lock().unwrap();
+                            // Remove existing items with the same text content
+                            let new_text = item.content_text.as_deref();
+                            data.items.retain(|existing| {
+                                existing.content_text.as_deref() != new_text
+                            });
                             data.items.insert(0, item.clone());
                             // Trim
                             let max = data.settings.max_history;

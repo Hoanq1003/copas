@@ -126,42 +126,31 @@ fn activate_and_paste() {
     }
 }
 
-/// macOS: CGEvent Cmd+V
+/// macOS: osascript System Events keystroke Cmd+V
+/// This is more reliable than CGEvent because it doesn't require
+/// the calling app (CoPas) to have Accessibility permission.
 #[cfg(target_os = "macos")]
 fn simulate_paste_cgevent() {
-    use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
-    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
-    use core_graphics::event::CGEventTapLocation;
+    info!("paste: sending Cmd+V via osascript System Events ...");
 
-    info!("paste: posting CGEvent Cmd+V ...");
+    let result = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(r#"tell application "System Events" to keystroke "v" using command down"#)
+        .output();
 
-    const V_KEY: CGKeyCode = 9;
-
-    let source = match CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
-        Ok(s) => s,
-        Err(_) => {
-            error!("paste: CGEventSource failed — Accessibility permission needed");
-            return;
+    match result {
+        Ok(output) => {
+            if output.status.success() {
+                info!("paste: Cmd+V sent OK via osascript");
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                error!("paste: osascript Cmd+V failed: {}", stderr);
+            }
         }
-    };
-
-    let key_down = match CGEvent::new_keyboard_event(source.clone(), V_KEY, true) {
-        Ok(e) => e,
-        Err(_) => { error!("paste: CGEvent key_down failed"); return; }
-    };
-    key_down.set_flags(CGEventFlags::CGEventFlagCommand);
-
-    let key_up = match CGEvent::new_keyboard_event(source, V_KEY, false) {
-        Ok(e) => e,
-        Err(_) => { error!("paste: CGEvent key_up failed"); return; }
-    };
-    key_up.set_flags(CGEventFlags::CGEventFlagCommand);
-
-    key_down.post(CGEventTapLocation::HID);
-    thread::sleep(Duration::from_millis(50));
-    key_up.post(CGEventTapLocation::HID);
-
-    info!("paste: CGEvent Cmd+V posted OK");
+        Err(e) => {
+            error!("paste: osascript command failed: {}", e);
+        }
+    }
 }
 
 /// Windows/Linux: enigo

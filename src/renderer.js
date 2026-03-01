@@ -537,16 +537,21 @@
 
     // Paste selected items AND hide
     async function bulkPaste() {
-        if (!selectedIds.size) return;
+        if (!selectedIds.size) { toast('Chưa chọn mục nào', 'warning'); return; }
         const contents = [];
         displayItems.forEach(i => {
             if (selectedIds.has(i.id) && i.kind !== 'image') contents.push(parseSnippets(i.contentText || i.content || ''));
         });
         toggleSel(false);
         if (contents.length > 0) {
-            await window.copas.bulkPasteAndHide(contents);
+            toast(`📋 Đang dán ${contents.length} mục...`, 'info');
+            try {
+                await window.copas.bulkPasteAndHide(contents);
+            } catch (err) {
+                toast('❌ Lỗi dán: ' + (err.message || err), 'error');
+            }
         } else {
-            toast('Bulk paste text only', 'info');
+            toast('Chỉ hỗ trợ dán văn bản (không dán ảnh)', 'info');
         }
     }
 

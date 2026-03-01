@@ -11,7 +11,7 @@ use storage::Storage;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
-    Manager, Emitter, WindowEvent,
+    Manager, Emitter,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -61,23 +61,9 @@ pub fn run() {
             // Setup global shortcut
             setup_global_shortcut(app, &shortcut_str, &screenshot_shortcut_str)?;
 
-            // Auto-hide on blur (focus lost)
-            let window = app.get_webview_window("main").unwrap();
-            let handle = app.handle().clone();
-            window.on_window_event(move |event| {
-                if let WindowEvent::Focused(false) = event {
-                    // Delay to allow paste-and-hide to complete
-                    let h = handle.clone();
-                    std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_millis(150));
-                        if let Some(w) = h.get_webview_window("main") {
-                            if w.is_visible().unwrap_or(false) {
-                                w.hide().ok();
-                            }
-                        }
-                    });
-                }
-            });
+
+            // NOTE: Removed auto-hide-on-blur — it was hiding the window
+            // before users could click on cards to paste.
 
             info!("CoPas initialized successfully!");
             Ok(())

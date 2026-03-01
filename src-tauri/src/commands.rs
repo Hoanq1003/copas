@@ -2,7 +2,7 @@ use crate::models::{HistoryResult, Item, Stats};
 use crate::paste;
 use crate::storage::Storage;
 use arboard::Clipboard;
-use log::error;
+use log::{error, info};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State, Emitter};
 
@@ -289,20 +289,27 @@ pub fn paste_and_hide(
     content: String,
     image_path: Option<String>,
 ) -> serde_json::Value {
+    info!("paste_and_hide called: content_len={}, image={:?}", content.len(), image_path);
+
     // Hide popup first
     if let Some(window) = app_handle.get_webview_window("main") {
         window.hide().ok();
+        info!("paste_and_hide: window hidden");
     }
 
     // Paste in a separate thread to not block
     let images_dir = storage.images_dir().to_path_buf();
     std::thread::spawn(move || {
+        info!("paste_and_hide: paste thread started");
         if let Some(ref img_path) = image_path {
             let full_path = images_dir.join(img_path);
+            info!("paste_and_hide: pasting image {:?}", full_path);
             paste::paste_image_and_simulate(&full_path);
         } else {
+            info!("paste_and_hide: pasting text '{}...'", &content[..content.len().min(50)]);
             paste::paste_text_and_simulate(&content);
         }
+        info!("paste_and_hide: paste complete");
     });
 
     serde_json::json!({"success": true})

@@ -229,10 +229,15 @@
 
             // SINGLE CLICK = Paste into active app!
             card.addEventListener('click', async (e) => {
-                if (e.target.closest('.ca') || e.target.closest('.card-chk')) return;
+                document.title = 'CLICK: ' + id;
+                if (e.target.closest('.ca') || e.target.closest('.card-chk')) {
+                    document.title = 'BLOCKED: action btn';
+                    return;
+                }
 
                 // Ctrl+Click = multi-select
                 if (e.ctrlKey || e.metaKey) {
+                    document.title = 'META-CLICK: multi-select';
                     e.preventDefault();
                     if (!isSelectMode) toggleSel(true);
                     if (selectedIds.has(id)) selectedIds.delete(id);
@@ -244,16 +249,27 @@
                 }
 
                 // Normal click = paste and hide!
+                document.title = 'PASTING...';
                 const item = displayItems.find(i => i.id === id);
                 if (item) {
                     card.style.borderColor = 'var(--success)';
                     card.style.background = 'var(--acc-bg)';
-                    if (item.kind === 'image') {
-                        await window.copas.pasteAndHide('', item.imagePath);
-                    } else {
-                        let text = parseSnippets(item.contentText || item.content || '');
-                        await window.copas.pasteAndHide(text);
+                    try {
+                        if (item.kind === 'image') {
+                            document.title = 'PASTE IMG: ' + (item.imagePath || '');
+                            await window.copas.pasteAndHide('', item.imagePath || '');
+                        } else {
+                            let text = parseSnippets(item.contentText || item.content || '');
+                            document.title = 'PASTE TXT: ' + text.substring(0, 30);
+                            await window.copas.pasteAndHide(text, null);
+                        }
+                        document.title = 'PASTE OK!';
+                    } catch (err) {
+                        document.title = 'ERROR: ' + err;
+                        console.error('[CoPas] pasteAndHide ERROR:', err);
                     }
+                } else {
+                    document.title = 'NO ITEM FOUND: ' + id;
                 }
             });
 

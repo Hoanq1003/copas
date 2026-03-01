@@ -8,6 +8,36 @@ use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
+/// Read HTML content from macOS clipboard (if available)
+#[cfg(target_os = "macos")]
+fn get_clipboard_html() -> Option<String> {
+    // Use osascript to read HTML from clipboard
+    let output = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(r#"try
+            set htmlData to the clipboard as «class HTML»
+            set htmlText to do shell script "echo " & quoted form of (htmlData as text) & " | perl -pe 's/«data HTML//; s/»//; s/([0-9A-Fa-f]{2})/chr(hex($1))/ge'"
+            return htmlText
+        on error
+            return ""
+        end try"#)
+        .output()
+        .ok()?;
+    
+    let html = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if html.is_empty() || html.len() < 10 {
+        None
+    } else {
+        Some(html)
+    }
+}
+
+/// Fallback for non-macOS: try reading HTML via alternative method
+#[cfg(not(target_os = "macos"))]
+fn get_clipboard_html() -> Option<String> {
+    None
+}
+
 /// Detect content category heuristic
 pub fn detect_category(text: &str) -> &'static str {
     let t = text.trim();
@@ -84,8 +114,25 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
         loop {
             std::thread::sleep(Duration::from_millis(poll_ms));
 
-            // Skip if paste is in progress — don't re-detect our own clipboard write
+            // Skip if paste is in progress — but still update our hash tracking
+            // so we don't re-detect the pasted content after the flag clears
             if crate::paste::PASTE_IN_PROGRESS.load(std::sync::atomic::Ordering::SeqCst) {
+                // Update last_text_hash to current clipboard during paste
+                if let Ok(text) = clipboard.get_text() {
+                    if !text.is_empty() {
+                        let mut hasher = Sha256::new();
+                        hasher.update(text.as_bytes());
+                        last_text_hash = Some(hasher.finalize().to_vec());
+                    }
+                }
+                // Also update image hash
+                if let Ok(img_data) = clipboard.get_image() {
+                    if !img_data.bytes.is_empty() {
+                        let mut hasher = Sha256::new();
+                        hasher.update(&img_data.bytes);
+                        last_image_hash = Some(hasher.finalize().to_vec());
+                    }
+                }
                 continue;
             }
             // Check text
@@ -95,6 +142,15 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
                     hasher.update(text.as_bytes());
                     let hash = hasher.finalize().to_vec();
 
+                    // Skip if this matches the last-pasted content hash
+                    if let Ok(lph) = crate::paste::LAST_PASTE_HASH.lock() {
+                        if lph.as_ref() == Some(&hash) {
+                            // This clipboard content was set by our paste operation — skip
+                            last_text_hash = Some(hash);
+                            continue;
+                        }
+                    }
+
                     if last_text_hash.as_ref() != Some(&hash) {
                         last_text_hash = Some(hash);
                         let category = detect_category(&text);
@@ -103,15 +159,49 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
                         } else {
                             None
                         };
+
+                        // Check if this content already exists in history — don't re-add duplicates
+                        {
+                            let data = storage.data.lock().unwrap();
+                            let already_exists = data.items.iter().any(|existing| {
+                                existing.content_text.as_deref() == Some(text.as_str())
+                                    || existing.content.as_deref() == Some(text.as_str())
+                            });
+                            if already_exists {
+                                // Content already in history — move it to top instead of adding new
+                                drop(data);
+                                let mut data = storage.data.lock().unwrap();
+                                // Find the item and update its timestamp
+                                if let Some(item) = data.items.iter_mut().find(|i| {
+                                    i.content_text.as_deref() == Some(text.as_str())
+                                        || i.content.as_deref() == Some(text.as_str())
+                                }) {
+                                    item.timestamp = chrono::Utc::now().to_rfc3339();
+                                    let updated_item = item.clone();
+                                    drop(data);
+                                    storage.save_sync();
+                                    // Emit so UI updates
+                                    if let Err(e) = app_handle.emit("clipboard-updated", &updated_item) {
+                                        warn!("Failed to emit clipboard-updated: {}", e);
+                                    }
+                                }
+                                continue;
+                            }
+                        }
+
                         let id = format!(
                             "{}{}",
                             chrono::Utc::now().timestamp_millis(),
                             &uuid::Uuid::new_v4().to_string()[..8]
                         );
+                        // Try to capture HTML content for rich text
+                        let html_content = get_clipboard_html();
+
                         let item = Item {
                             id,
                             kind: ItemKind::Text,
                             content_text: Some(text.clone()),
+                            content_html: html_content,
                             image_path: None,
                             mime: None,
                             category: category.to_string(),
@@ -123,14 +213,9 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
                             in_vault: false,
                         };
 
-                        // Add to storage (de-duplicate: remove old entry with same content)
+                        // Add to storage
                         {
                             let mut data = storage.data.lock().unwrap();
-                            // Remove existing items with the same text content
-                            let new_text = item.content_text.as_deref();
-                            data.items.retain(|existing| {
-                                existing.content_text.as_deref() != new_text
-                            });
                             data.items.insert(0, item.clone());
                             // Trim
                             let max = data.settings.max_history;
@@ -186,6 +271,7 @@ pub fn start_clipboard_watcher(app_handle: AppHandle, storage: Arc<Storage>) {
                                         id,
                                         kind: ItemKind::Image,
                                         content_text: None,
+                                        content_html: None,
                                         image_path: Some(filename),
                                         mime: Some("image/png".into()),
                                         category: "image".into(),

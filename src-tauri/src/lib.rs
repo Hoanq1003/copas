@@ -296,16 +296,79 @@ fn show_popup(app_handle: &tauri::AppHandle) {
     // Save the current frontmost app BEFORE showing CoPas
     #[cfg(target_os = "macos")]
     {
+        // Method 1: Try to get the frontmost app directly
+        let mut saved = false;
         if let Ok(output) = std::process::Command::new("osascript")
             .arg("-e")
             .arg(r#"tell application "System Events" to get name of first process whose frontmost is true"#)
             .output()
         {
             let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !name.is_empty() && name != "CoPas" && name != "copas" {
+            eprintln!(">>> show_popup: frontmost app = '{}'", name);
+            if !name.is_empty()
+                && !name.eq_ignore_ascii_case("CoPas")
+                && !name.eq_ignore_ascii_case("copas")
+            {
                 if let Ok(mut prev) = PREVIOUS_APP_NAME.lock() {
                     *prev = name.clone();
+                    eprintln!(">>> show_popup: saved previous app = '{}'", name);
                     info!("Saved previous app: {}", name);
+                    saved = true;
+                }
+            } else {
+                eprintln!(">>> show_popup: frontmost IS CoPas or empty, trying alternative...");
+            }
+        }
+
+        // Method 2: If frontmost is CoPas (because shortcut activated us),
+        // find the most recently active non-CoPas visible app
+        if !saved {
+            if let Ok(output) = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(r#"tell application "System Events"
+                    set appList to name of every process whose visible is true and name is not "CoPas" and name is not "copas" and name is not "Finder"
+                    if (count of appList) > 0 then
+                        return item 1 of appList
+                    else
+                        return ""
+                    end if
+                end tell"#)
+                .output()
+            {
+                let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                eprintln!(">>> show_popup: alternative lookup = '{}'", name);
+                if !name.is_empty() {
+                    if let Ok(mut prev) = PREVIOUS_APP_NAME.lock() {
+                        *prev = name.clone();
+                        eprintln!(">>> show_popup: saved previous app (alt) = '{}'", name);
+                        info!("Saved previous app (alternative): {}", name);
+                        saved = true;
+                    }
+                }
+            }
+        }
+
+        // Method 3: Last resort — use lsappinfo to find the front app
+        if !saved {
+            if let Ok(output) = std::process::Command::new("lsappinfo")
+                .arg("front")
+                .output()
+            {
+                let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                eprintln!(">>> show_popup: lsappinfo front = '{}'", raw);
+                // lsappinfo returns ASN:0x0-...:  "AppName"
+                // Extract app name from quotes
+                if let Some(start) = raw.find('"') {
+                    if let Some(end) = raw[start+1..].find('"') {
+                        let name = &raw[start+1..start+1+end];
+                        if !name.eq_ignore_ascii_case("CoPas") && !name.is_empty() {
+                            if let Ok(mut prev) = PREVIOUS_APP_NAME.lock() {
+                                *prev = name.to_string();
+                                eprintln!(">>> show_popup: saved previous app (lsappinfo) = '{}'", name);
+                                info!("Saved previous app (lsappinfo): {}", name);
+                            }
+                        }
+                    }
                 }
             }
         }

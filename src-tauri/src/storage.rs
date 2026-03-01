@@ -197,6 +197,7 @@ impl Storage {
                         id,
                         kind: ItemKind::Text,
                         content_text: Some(content.clone()),
+                        content_html: None,
                         image_path: None,
                         mime: None,
                         category,

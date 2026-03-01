@@ -288,28 +288,45 @@ pub fn paste_and_hide(
     storage: State<StorageState>,
     content: String,
     image_path: Option<String>,
+    content_html: Option<String>,
 ) -> serde_json::Value {
+    eprintln!(">>> paste_and_hide CALLED: content_len={}, image={:?}, has_html={}", content.len(), image_path, content_html.is_some());
     info!("paste_and_hide called: content_len={}, image={:?}", content.len(), image_path);
 
     // Hide popup first
     if let Some(window) = app_handle.get_webview_window("main") {
-        window.hide().ok();
-        info!("paste_and_hide: window hidden");
+        let hide_result = window.hide();
+        eprintln!(">>> paste_and_hide: window.hide() = {:?}", hide_result);
+    } else {
+        eprintln!(">>> paste_and_hide: NO MAIN WINDOW FOUND!");
     }
 
     // Paste in a separate thread to not block
     let images_dir = storage.images_dir().to_path_buf();
     std::thread::spawn(move || {
-        info!("paste_and_hide: paste thread started");
+        // Wait for window to fully hide before activating target app
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        eprintln!(">>> paste_and_hide: thread started after 300ms delay");
         if let Some(ref img_path) = image_path {
             let full_path = images_dir.join(img_path);
-            info!("paste_and_hide: pasting image {:?}", full_path);
+            eprintln!(">>> paste_and_hide: pasting image {:?}", full_path);
             paste::paste_image_and_simulate(&full_path);
+        } else if let Some(ref html) = content_html {
+            if !html.is_empty() {
+                let preview: String = content.chars().take(40).collect();
+                eprintln!(">>> paste_and_hide: pasting rich text '{}'", preview);
+                paste::paste_rich_text_and_simulate(&content, html);
+            } else {
+                let preview: String = content.chars().take(40).collect();
+                eprintln!(">>> paste_and_hide: pasting text '{}'", preview);
+                paste::paste_text_and_simulate(&content);
+            }
         } else {
-            info!("paste_and_hide: pasting text '{}...'", &content[..content.len().min(50)]);
+            let preview: String = content.chars().take(40).collect();
+            eprintln!(">>> paste_and_hide: pasting text '{}'", preview);
             paste::paste_text_and_simulate(&content);
         }
-        info!("paste_and_hide: paste complete");
+        eprintln!(">>> paste_and_hide: DONE");
     });
 
     serde_json::json!({"success": true})
@@ -320,10 +337,18 @@ pub fn bulk_paste_and_hide(
     app_handle: AppHandle,
     storage: State<StorageState>,
     contents: Vec<String>,
+    html_contents: Option<Vec<String>>,
+    image_paths: Option<Vec<String>>,
 ) -> serde_json::Value {
+    eprintln!(">>> [bulk_paste] received {} text items, {:?} html, {:?} images", 
+        contents.len(), 
+        html_contents.as_ref().map(|v| v.len()),
+        image_paths.as_ref().map(|v| v.len())
+    );
     info!("[bulk_paste] received {} items", contents.len());
     let data = storage.data.lock().unwrap();
     let delim = data.settings.paste_delimiter.clone();
+    let images_dir = storage.images_dir().to_path_buf();
     drop(data);
 
     // Hide popup
@@ -331,11 +356,42 @@ pub fn bulk_paste_and_hide(
         window.hide().ok();
     }
 
+    let html_vec = html_contents.unwrap_or_default();
+    let img_vec = image_paths.unwrap_or_default();
+
     std::thread::spawn(move || {
-        // Wait for window to fully hide before activating target app
         std::thread::sleep(std::time::Duration::from_millis(200));
-        info!("[bulk_paste] starting paste with delimiter '{}'", delim);
-        paste::bulk_paste_text_and_simulate(&contents, &delim);
+
+        // If we have images, do sequential mixed paste
+        if !img_vec.is_empty() {
+            let mut items: Vec<(Option<String>, Option<String>, Option<String>)> = Vec::new();
+            
+            // Add text items
+            for (i, text) in contents.iter().enumerate() {
+                let html = html_vec.get(i).cloned();
+                items.push((Some(text.clone()), html, None));
+            }
+            
+            // Add image items
+            for img in &img_vec {
+                let full_path = images_dir.join(img);
+                items.push((None, None, Some(full_path.to_string_lossy().to_string())));
+            }
+            
+            paste::bulk_paste_mixed(&items);
+        } else {
+            // Text only — check if any have HTML
+            let has_html = html_vec.iter().any(|h| !h.is_empty());
+            if has_html && contents.len() == 1 {
+                // Single rich text item
+                let html = html_vec.first().map(|s| s.as_str()).unwrap_or("");
+                paste::paste_rich_text_and_simulate(&contents[0], html);
+            } else {
+                // Multiple text items — combine with delimiter
+                info!("[bulk_paste] starting paste with delimiter '{}'", delim);
+                paste::bulk_paste_text_and_simulate(&contents, &delim);
+            }
+        }
         info!("[bulk_paste] done");
     });
 

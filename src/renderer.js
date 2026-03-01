@@ -104,8 +104,8 @@
         getStats: () => invoke('get_stats'),
         getSettings: () => invoke('get_settings'),
         setSettings: (s) => invoke('set_settings', { settings: s }),
-        pasteAndHide: (content, imagePath) => invoke('paste_and_hide', { content, imagePath }),
-        bulkPasteAndHide: (contents) => invoke('bulk_paste_and_hide', { contents }),
+        pasteAndHide: (content, imagePath, contentHtml) => invoke('paste_and_hide', { content, imagePath, contentHtml: contentHtml || null }),
+        bulkPasteAndHide: (contents, htmlContents, imagePaths) => invoke('bulk_paste_and_hide', { contents, htmlContents: htmlContents || null, imagePaths: imagePaths || null }),
         hidePopup: () => invoke('hide_popup'),
         showPopup: () => invoke('window_show'),
         onClipboardUpdate: (cb) => listen('clipboard-updated', (e) => cb(e.payload)),
@@ -355,11 +355,11 @@
                     try {
                         if (item.kind === 'image') {
                             document.title = 'PASTE IMG: ' + (item.imagePath || '');
-                            await window.copas.pasteAndHide('', item.imagePath || '');
+                            await window.copas.pasteAndHide('', item.imagePath || '', null);
                         } else {
                             let text = parseSnippets(item.contentText || item.content || '');
                             document.title = 'PASTE TXT: ' + text.substring(0, 30);
-                            await window.copas.pasteAndHide(text, null);
+                            await window.copas.pasteAndHide(text, null, item.contentHtml || null);
                         }
                         document.title = 'PASTE OK!';
                     } catch (err) {
@@ -394,10 +394,10 @@
                 const item = displayItems.find(i => i.id === id);
                 if (item) {
                     if (item.kind === 'image') {
-                        await window.copas.pasteAndHide('', item.imagePath);
+                        await window.copas.pasteAndHide('', item.imagePath, null);
                     } else {
                         let text = parseSnippets(item.contentText || item.content || '');
-                        await window.copas.pasteAndHide(text);
+                        await window.copas.pasteAndHide(text, null, item.contentHtml || null);
                     }
                 }
             });
@@ -504,10 +504,10 @@
             } else if (focusedIndex >= 0 && focusedIndex < displayItems.length) {
                 const item = displayItems[focusedIndex];
                 if (item.kind === 'image') {
-                    await window.copas.pasteAndHide('', item.imagePath || '');
+                    await window.copas.pasteAndHide('', item.imagePath || '', null);
                 } else {
                     let text = parseSnippets(item.contentText || item.content || '');
-                    await window.copas.pasteAndHide(text, null);
+                    await window.copas.pasteAndHide(text, null, item.contentHtml || null);
                 }
             }
             return;
@@ -578,19 +578,35 @@
     async function bulkPaste() {
         if (!selectedIds.size) { toast('Chưa chọn mục nào', 'warning'); return; }
         const contents = [];
+        const htmlContents = [];
+        const imagePaths = [];
+
         displayItems.forEach(i => {
-            if (selectedIds.has(i.id) && i.kind !== 'image') contents.push(parseSnippets(i.contentText || i.content || ''));
+            if (selectedIds.has(i.id)) {
+                if (i.kind === 'image' && i.imagePath) {
+                    imagePaths.push(i.imagePath);
+                } else if (i.kind !== 'image') {
+                    contents.push(parseSnippets(i.contentText || i.content || ''));
+                    htmlContents.push(i.contentHtml || '');
+                }
+            }
         });
         toggleSel(false);
-        if (contents.length > 0) {
-            toast(`📋 Đang dán ${contents.length} mục...`, 'info');
+
+        const totalItems = contents.length + imagePaths.length;
+        if (totalItems > 0) {
+            toast(`📋 Đang dán ${totalItems} mục...`, 'info');
             try {
-                await window.copas.bulkPasteAndHide(contents);
+                await window.copas.bulkPasteAndHide(
+                    contents,
+                    htmlContents.length > 0 ? htmlContents : null,
+                    imagePaths.length > 0 ? imagePaths : null
+                );
             } catch (err) {
                 toast('❌ Lỗi dán: ' + (err.message || err), 'error');
             }
         } else {
-            toast('Chỉ hỗ trợ dán văn bản (không dán ảnh)', 'info');
+            toast('Không có mục nào để dán', 'info');
         }
     }
 

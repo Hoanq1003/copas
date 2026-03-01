@@ -26,6 +26,9 @@ pub struct Item {
     /// Text content (for text items) or empty
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_text: Option<String>,
+    /// HTML content for rich text formatting (bold, italic, colors)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_html: Option<String>,
     /// Relative path to saved image (for image items)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image_path: Option<String>,

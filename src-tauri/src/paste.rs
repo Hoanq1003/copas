@@ -106,17 +106,38 @@ fn simulate_paste_keystroke() {
 }
 
 /// macOS: Use CoreGraphics CGEvent to simulate Cmd+V
-/// CGEvent works from any thread and only requires Accessibility permission.
-/// osascript is blocked by macOS security (error 1002).
+/// First activate the previous app (since CoPas just hid), then post CGEvent.
+/// osascript CAN activate apps (just can't send keystrokes — error 1002).
 #[cfg(target_os = "macos")]
 fn simulate_paste_cgevent() {
     use core_graphics::event::{CGEvent, CGEventFlags, CGKeyCode};
     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
     use core_graphics::event::CGEventTapLocation;
 
+    // Step 1: Activate the frontmost non-CoPas app
+    // osascript CAN activate apps, just can't send keystrokes
+    info!("Activating previous app...");
+    let _ = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(r#"
+            tell application "System Events"
+                set appList to every process whose frontmost is true
+                if (count of appList) > 0 then
+                    set frontApp to name of item 1 of appList
+                    if frontApp is not "CoPas" and frontApp is not "copas" then
+                        tell process frontApp to set frontmost to true
+                    end if
+                end if
+            end tell
+        "#)
+        .output();
+
+    // Wait for the app to fully activate
+    thread::sleep(Duration::from_millis(300));
+
+    // Step 2: Post CGEvent Cmd+V
     info!("Simulating Cmd+V via CGEvent...");
 
-    // Key code 9 = 'V' key on macOS keyboard
     const V_KEY: CGKeyCode = 9;
 
     let source = match CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
@@ -128,7 +149,6 @@ fn simulate_paste_cgevent() {
         }
     };
 
-    // Key down: V with Command flag
     let key_down = match CGEvent::new_keyboard_event(source.clone(), V_KEY, true) {
         Ok(e) => e,
         Err(_) => {
@@ -138,7 +158,6 @@ fn simulate_paste_cgevent() {
     };
     key_down.set_flags(CGEventFlags::CGEventFlagCommand);
 
-    // Key up: V with Command flag
     let key_up = match CGEvent::new_keyboard_event(source, V_KEY, false) {
         Ok(e) => e,
         Err(_) => {
@@ -148,7 +167,6 @@ fn simulate_paste_cgevent() {
     };
     key_up.set_flags(CGEventFlags::CGEventFlagCommand);
 
-    // Post events to the HID system
     key_down.post(CGEventTapLocation::HID);
     thread::sleep(Duration::from_millis(50));
     key_up.post(CGEventTapLocation::HID);

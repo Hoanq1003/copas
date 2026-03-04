@@ -290,43 +290,29 @@ pub fn paste_and_hide(
     image_path: Option<String>,
     content_html: Option<String>,
 ) -> serde_json::Value {
-    eprintln!(">>> paste_and_hide CALLED: content_len={}, image={:?}, has_html={}", content.len(), image_path, content_html.is_some());
-    info!("paste_and_hide called: content_len={}, image={:?}", content.len(), image_path);
+    info!("paste_and_hide: content_len={}, image={:?}, has_html={}", content.len(), image_path, content_html.is_some());
 
     // Hide popup first
     if let Some(window) = app_handle.get_webview_window("main") {
-        let hide_result = window.hide();
-        eprintln!(">>> paste_and_hide: window.hide() = {:?}", hide_result);
-    } else {
-        eprintln!(">>> paste_and_hide: NO MAIN WINDOW FOUND!");
+        window.hide().ok();
     }
 
     // Paste in a separate thread to not block
     let images_dir = storage.images_dir().to_path_buf();
     std::thread::spawn(move || {
-        // Wait for window to fully hide before activating target app
         std::thread::sleep(std::time::Duration::from_millis(300));
-        eprintln!(">>> paste_and_hide: thread started after 300ms delay");
         if let Some(ref img_path) = image_path {
             let full_path = images_dir.join(img_path);
-            eprintln!(">>> paste_and_hide: pasting image {:?}", full_path);
             paste::paste_image_and_simulate(&full_path);
         } else if let Some(ref html) = content_html {
             if !html.is_empty() {
-                let preview: String = content.chars().take(40).collect();
-                eprintln!(">>> paste_and_hide: pasting rich text '{}'", preview);
                 paste::paste_rich_text_and_simulate(&content, html);
             } else {
-                let preview: String = content.chars().take(40).collect();
-                eprintln!(">>> paste_and_hide: pasting text '{}'", preview);
                 paste::paste_text_and_simulate(&content);
             }
         } else {
-            let preview: String = content.chars().take(40).collect();
-            eprintln!(">>> paste_and_hide: pasting text '{}'", preview);
             paste::paste_text_and_simulate(&content);
         }
-        eprintln!(">>> paste_and_hide: DONE");
     });
 
     serde_json::json!({"success": true})
@@ -340,12 +326,11 @@ pub fn bulk_paste_and_hide(
     html_contents: Option<Vec<String>>,
     image_paths: Option<Vec<String>>,
 ) -> serde_json::Value {
-    eprintln!(">>> [bulk_paste] received {} text items, {:?} html, {:?} images", 
-        contents.len(), 
-        html_contents.as_ref().map(|v| v.len()),
-        image_paths.as_ref().map(|v| v.len())
+    info!("[bulk_paste] {} text, {} html, {} images",
+        contents.len(),
+        html_contents.as_ref().map(|v| v.len()).unwrap_or(0),
+        image_paths.as_ref().map(|v| v.len()).unwrap_or(0)
     );
-    info!("[bulk_paste] received {} items", contents.len());
     let data = storage.data.lock().unwrap();
     let delim = data.settings.paste_delimiter.clone();
     let images_dir = storage.images_dir().to_path_buf();
